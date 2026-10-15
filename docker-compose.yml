@@ -1,0 +1,90 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tork_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-tork_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-supersecret}
+      POSTGRES_DB: ${POSTGRES_DB:-tork_bot_db}
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${POSTGRES_USER:-tork_admin} -d ${POSTGRES_DB:-tork_bot_db}',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - tork_net
+
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    container_name: tork_gotenberg
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    networks:
+      - tork_net
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: tork_n8n
+    restart: unless-stopped
+    ports:
+      - '5678:5678'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      gotenberg:
+        condition: service_started
+    environment:
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB:-tork_bot_db}
+      - DB_POSTGRESDB_USER=${POSTGRES_USER:-tork_admin}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD:-supersecret}
+      - DB_POSTGRESDB_SCHEMA=public
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY:-tork-bot-kz-secret-encryption-key-2026}
+      - N8N_HOST=${N8N_HOST:-localhost}
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=${N8N_PROTOCOL:-http}
+      - WEBHOOK_URL=${WEBHOOK_URL}
+      - N8N_DEFAULT_BINARY_DATA_MODE=filesystem
+      - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
+      - NODE_FUNCTION_ALLOW_BUILTIN=fs,path
+      - GENERIC_TIMEZONE=Asia/Almaty
+      # Business logic & APIs
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - MANAGER_CHAT_ID=${MANAGER_CHAT_ID}
+      - VLM_BASE_URL=${VLM_BASE_URL}
+      - VLM_API_KEY=${VLM_API_KEY}
+      - VLM_MODEL_NAME=${VLM_MODEL_NAME}
+      - IMAGE_EDIT_API_URL=${IMAGE_EDIT_API_URL}
+      - IMAGE_EDIT_API_KEY=${IMAGE_EDIT_API_KEY:-${VLM_API_KEY}}
+      - IMAGE_EDIT_MODEL=${IMAGE_EDIT_MODEL:-gemini-3.1-flash-image}
+      - DEFAULT_DISTRIBUTOR_ID=${DEFAULT_DISTRIBUTOR_ID:-1}
+      - MAX_RENDERS_PER_USER_DAY=${MAX_RENDERS_PER_USER_DAY:-5}
+      - GOTENBERG_URL=http://gotenberg:3000
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./assets:/data/assets
+      - ./templates:/data/templates
+      - ./workflows:/data/workflows
+    networks:
+      - tork_net
+
+networks:
+  tork_net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  n8n_data:
