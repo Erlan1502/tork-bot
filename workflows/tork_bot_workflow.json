@@ -1,1 +1,798 @@
-[{"updatedAt":"2026-10-15T22:28:39.071Z","createdAt":"2026-10-15T22:08:19.747Z","id":"et5bObdDVdYXeF7Z","name":"Tork Bot Kazakhstan MVP","description":null,"active":false,"isArchived":true,"nodes":[{"parameters":{"updates":["message","callback_query"],"additionalFields":{}},"id":"c9d8cb5e-592d-4170-ab91-a58e476bdb31","name":"Telegram Trigger","type":"n8n-nodes-base.telegramTrigger","position":[-880,208],"typeVersion":1.1,"webhookId":"df15ad11-49b0-4a32-aa31-7afd5ddc21b7","credentials":{"telegramApi":{"id":"ildUvXJDz5GOalvb","name":"Telegram account"}}},{"parameters":{"conditions":{"options":{"caseSensitive":true,"leftValue":"","typeValidation":"strict","version":1},"conditions":[{"operator":{"operation":"equals","type":"string"},"rightValue":"video","id":"c1","leftValue":"={{ $json.message?.video || $json.message?.video_note ? 'video' : ($json.message?.photo ? 'photo' : ($json.callback_query ? 'callback' : 'text')) }}"}],"combinator":"and"},"options":{}},"id":"f0dfa745-0d9b-44f7-9a82-9aa8b3e93d59","name":"Check Media Type","type":"n8n-nodes-base.if","position":[-656,208],"typeVersion":2},{"parameters":{"chatId":"={{ $json.message?.chat?.id }}","text":"Для точного подбора и визуализации, пожалуйста, отправьте обычную фотографию стены и раковины санузла на расстоянии 1.5–2 метра.","additionalFields":{"appendAttribution":false}},"id":"e7204fc1-fb9c-45de-a7d6-e9a90dc981f2","name":"Reject Video Message","type":"n8n-nodes-base.telegram","position":[-448,80],"typeVersion":1.2,"webhookId":"28f46a76-e4e0-4097-96bc-976a0707be0b","credentials":{"telegramApi":{"id":"ildUvXJDz5GOalvb","name":"Telegram account"}}},{"parameters":{"operation":"executeQuery","query":"INSERT INTO user_sessions_leads (tg_user_id, tg_username, client_name, distributor_id, current_step) VALUES ({{ $('Telegram Trigger').item.json.message ? $('Telegram Trigger').item.json.message.from.id : $('Telegram Trigger').item.json.callback_query.from.id }}, '{{ ($('Telegram Trigger').item.json.message ? $('Telegram Trigger').item.json.message.from.username : $('Telegram Trigger').item.json.callback_query.from.username) || '' }}', '{{ ($('Telegram Trigger').item.json.message ? $('Telegram Trigger').item.json.message.from.first_name : $('Telegram Trigger').item.json.callback_query.from.first_name) || 'Клиент' }}', {{ $env.DEFAULT_DISTRIBUTOR_ID || 1 }}, 'START') ON CONFLICT (tg_user_id) DO UPDATE SET tg_username = EXCLUDED.tg_username, client_name = EXCLUDED.client_name RETURNING *;","options":{}},"id":"ae9c5ea5-6fab-44d7-9ffb-3d034a2b7033","name":"Upsert User Session","type":"n8n-nodes-base.postgres","position":[-448,320],"typeVersion":2.4,"credentials":{"postgres":{"id":"ssRaEX0w25vYf2wI","name":"Postgres account"}}},{"parameters":{"rules":{"values":[{"conditions":{"options":{"caseSensitive":true,"leftValue":"","typeValidation":"strict","version":2},"conditions":[{"operator":{"operation":"equals","type":"string"},"rightValue":"callback","id":"rule-callback","leftValue":"={{ $('Telegram Trigger').item.json.callback_query ? 'callback' : ($('Telegram Trigger').item.json.message?.photo ? 'photo' : 'other') }}"}],"combinator":"and"},"renameOutput":true,"outputKey":"callback_query"},{"conditions":{"options":{"caseSensitive":true,"leftValue":"","typeValidation":"strict","version":2},"conditions":[{"operator":{"operation":"equals","type":"string"},"rightValue":"photo","id":"rule-photo","leftValue":"={{ $('Telegram Trigger').item.json.callback_query ? 'callback' : ($('Telegram Trigger').item.json.message?.photo ? 'photo' : 'other') }}"}],"combinator":"and"},"renameOutput":true,"outputKey":"photo"}]},"options":{"fallbackOutput":"extra","renameFallbackOutput":"text_or_other"}},"id":"4aca1237-2a8b-428b-9680-28a6ff96f318","name":"Route by Event Type","type":"n8n-nodes-base.switch","position":[-224,320],"typeVersion":3.2},{"parameters":{"operation":"executeQuery","query":"UPDATE user_sessions_leads SET business_segment = '{{ ($('Telegram Trigger').item.json.callback_query.data || '').replace(/^seg_/, '') }}', current_step = 'AWAITING_PHOTO', updated_at = NOW() WHERE tg_user_id = {{ $('Telegram Trigger').item.json.callback_query.from.id }} RETURNING *;","options":{}},"id":"c4b85519-0274-4774-859b-dfd6010df2c1","name":"Update Session Segment","type":"n8n-nodes-base.postgres","position":[0,0],"typeVersion":2.4,"credentials":{"postgres":{"id":"ssRaEX0w25vYf2wI","name":"Postgres account"}}},{"parameters":{"chatId":"={{ $('Telegram Trigger').item.json.callback_query.message ? $('Telegram Trigger').item.json.callback_query.message.chat.id : $('Telegram Trigger').item.json.callback_query.from.id }}","text":"✅ Тип объекта сохранен!\n\nШаг 2 из 2: Отправьте обычную фотографию зоны раковины и стены санузла (с расстояния 1.5–2 метра). Я подберу подходящую систему Tork и сделаю примерку.","additionalFields":{"appendAttribution":false}},"id":"23d49c6d-be37-497e-984d-40ba17f3ba44","name":"Send Photo Request","type":"n8n-nodes-base.telegram","position":[224,0],"typeVersion":1.2,"webhookId":"2b3291d2-6a83-40da-bba6-824709d23730","credentials":{"telegramApi":{"id":"ildUvXJDz5GOalvb","name":"Telegram account"}}},{"parameters":{"chatId":"={{ $('Telegram Trigger').item.json.message ? $('Telegram Trigger').item.json.message.chat.id : $('Telegram Trigger').item.json.callback_query.message.chat.id }}","text":"👋 Добро пожаловать в Tork AI Казахстан!\n\nЯ помогу подобрать оптимальный комплект диспенсеров и расходных материалов Tork (Essity), примерить их на фото вашего санузла и рассчитать точную стоимость.\n\nШаг 1 из 2. Выберите тип вашего объекта:","replyMarkup":"inlineKeyboard","inlineKeyboard":{"rows":[{"row":{"buttons":[{"text":"🍽️ Кафе / Ресторан","additionalFields":{"callback_data":"seg_HoReCa"}},{"text":"🏢 Офис / БЦ","additionalFields":{"callback_data":"seg_Office"}}]}},{"row":{"buttons":[{"text":"🏥 Клиника / Мед.","additionalFields":{"callback_data":"seg_Medical"}},{"text":"🏭 Производство","additionalFields":{"callback_data":"seg_Industrial"}}]}}]},"additionalFields":{"appendAttribution":false}},"id":"22ae643e-b5ae-4ffe-bc25-92529b2f5e8e","name":"Send Segment Keyboard","type":"n8n-nodes-base.telegram","position":[0,464],"typeVersion":1.2,"webhookId":"1752a4b8-52f8-44dc-9bde-c4e1de57c9b2","credentials":{"telegramApi":{"id":"ildUvXJDz5GOalvb","name":"Telegram account"}}},{"parameters":{"conditions":{"options":{"caseSensitive":true,"leftValue":"","typeValidation":"strict","version":1},"conditions":[{"operator":{"operation":"equals","type":"string"},"rightValue":"ok","id":"rate-limit-cond","leftValue":"={{ $json.renders_today >= ($env.MAX_RENDERS_PER_USER_DAY || 5) && $json.last_render_date === new Date().toISOString().slice(0, 10) ? 'exceeded' : 'ok' }}"}],"combinator":"and"},"options":{}},"id":"bd9ceb43-aa43-4e67-b5c6-fec0ab5d8c26","name":"Check Rate Limit","type":"n8n-nodes-base.if","position":[0,272],"typeVersion":2},{"parameters":{"chatId":"={{ $('Telegram Trigger').item.json.message.chat.id }}","text":"Вы использовали дневной лимит визуализаций (5 в сутки). Наш менеджер в Казахстане свяжется с вами для индивидуального расчета и бесплатного тест-драйва оборудования.","additionalFields":{"appendAttribution":false}},"id":"e1a8c7e7-569c-4106-bba2-766f66d91cb9","name":"Limit Exceeded Message","type":"n8n-nodes-base.telegram","position":[224,160],"typeVersion":1.2,"webhookId":"a42ac24d-5604-40b2-b367-d051bae55002","credentials":{"telegramApi":{"id":"ildUvXJDz5GOalvb","name":"Telegram account"}}},{"parameters":{"method":"POST","url":"={{ ($env.VLM_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta/openai') + '/chat/completions' }}","sendHeaders":true,"headerParameters":{"parameters":[{"name":"Authorization","value":"={{ 'Bearer ' + $env.VLM_API_KEY }}"},{"name":"Content-Type","value":"application/json"}]},"sendBody":true,"specifyBody":"json","jsonBody":"{\n  \"model\": \"={{ $env.VLM_MODEL_NAME || 'gemini-3.8-flash' }}\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"Ты — технический эксперт по оснащению санузлов оборудованием Tork (Essity). Проанализируй фотографию помещения.\\n1. Определи, является ли фото валидным изображением санузла/умывальной зоны, где видна стена для монтажа диспенсера (is_valid_washroom: boolean). Если фото снято слишком близко, темно или это не санузел — укажи причину отказа на русском языке в поле rejection_reason.\\n2. Определи цветовую гамму и стиль интерьера и выбери рекомендуемый цвет оборудования (recommended_color: white, black или stainless_steel). Для темных, лофтовых и современных интерьеров выбирай black или stainless_steel, для классических светлых и медицинских — white.\\n3. Найди на фото раковину или зеркало как ориентир масштаба (стандартная ширина раковины = 55 см). Опиши на английском языке точное место на стене для вставки диспенсера для полотенец и дозатора мыла в поле placement_instruction_en (например: Mount the dispenser on the tiled wall to the right of the mirror, 25 cm above the sink counter).\\nВерни ответ СТРОГО в формате JSON.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": [\n        {\n          \"type\": \"text\",\n          \"text\": \"Пожалуйста, проанализируй это фото санузла.\"\n        },\n        {\n          \"type\": \"image_url\",\n          \"image_url\": {\n            \"url\": \"={{ $json.photo_base64_url }}\"\n          }\n        }\n      ]\n    }\n  ],\n  \"response_format\": {\n    \"type\": \"json_object\"\n  }\n}","options":{}},"id":"119ca805-d2f1-410b-936e-24b705b10265","name":"Call VLM (OpenAI-Compatible)","type":"n8n-nodes-base.httpRequest","position":[224,368],"typeVersion":4.2},{"parameters":{"operation":"executeQuery","query":"WITH selected_dispensers AS (\n    SELECT p.*, dp.price, d.currency, d.name as distributor_name, d.bin as distributor_bin, d.city as distributor_city, d.address as distributor_address, d.contact_phone as distributor_phone, d.contact_email as distributor_email\n    FROM products p\n    JOIN distributor_prices dp ON p.sku = dp.product_sku\n    JOIN distributors d ON d.id = dp.distributor_id\n    WHERE dp.distributor_id = {{ $('Upsert User Session').item.json.distributor_id || 1 }}\n      AND p.category = 'dispenser'\n      AND p.product_type IN ('hand_towel', 'soap')\n      AND p.color = '{{ (() => { try { return JSON.parse($('Call VLM (OpenAI-Compatible)').item.json.choices[0].message.content).recommended_color || 'white'; } catch(e) { return 'white'; } })() }}'\n      AND (p.traffic_level = '{{ $('Upsert User Session').item.json.daily_traffic > 200 ? 'high' : ($('Upsert User Session').item.json.daily_traffic >= 50 ? 'medium' : 'low') }}' OR p.traffic_level = 'any')\n      AND p.is_focus_item = TRUE\n      AND dp.in_stock = TRUE\n    LIMIT 2\n)\nSELECT * FROM selected_dispensers\nUNION ALL\nSELECT p.*, dp.price, d.currency, d.name as distributor_name, d.bin as distributor_bin, d.city as distributor_city, d.address as distributor_address, d.contact_phone as distributor_phone, d.contact_email as distributor_email\nFROM products p\nJOIN distributor_prices dp ON p.sku = dp.product_sku\nJOIN distributors d ON d.id = dp.distributor_id\nWHERE dp.distributor_id = {{ $('Upsert User Session').item.json.distributor_id || 1 }}\n  AND p.category = 'refill'\n  AND p.system_code IN (SELECT system_code FROM selected_dispensers)\n  AND p.is_focus_item = TRUE\n  AND dp.in_stock = TRUE;","options":{}},"id":"e6ba6eb2-2f0c-4c06-88c8-3ec6a0543822","name":"Query Products & Prices (SQL)","type":"n8n-nodes-base.postgres","position":[448,368],"typeVersion":2.4,"credentials":{"postgres":{"id":"ssRaEX0w25vYf2wI","name":"Postgres account"}}},{"parameters":{"method":"POST","url":"={{ 'https://generativelanguage.googleapis.com/v1beta/models/' + ($env.IMAGE_EDIT_MODEL || 'gemini-3.1-flash-image') + ':generateContent?key=' + $env.VLM_API_KEY }}","sendHeaders":true,"headerParameters":{"parameters":[{"name":"Content-Type","value":"application/json"},{"name":"x-goog-api-key","value":"={{ $env.VLM_API_KEY }}"}]},"sendBody":true,"specifyBody":"json","jsonBody":"{\n  \"contents\": [\n    {\n      \"parts\": [\n        {\n          \"text\": \"={{ 'Composite the exact Tork dispenser from the second image onto the washroom wall in the first image. Location: ' + ($json.placement_instruction_en || 'Mount the dispenser on the wall to the side of the sink') + '. Preserve the exact product shape, Tork logo, and material from the second reference image. Real product dimensions: width ' + ($json.dimensions_cm?.w || 33.7) + ' cm, height ' + ($json.dimensions_cm?.h || 37.2) + ' cm (scale it realistically relative to the sink, which is ~55 cm wide). Cast natural soft contact shadows onto the wall tiles matching the existing room lighting. Do not alter the rest of the bathroom.' }}\"\n        },\n        {\n          \"inline_data\": {\n            \"mime_type\": \"image/jpeg\",\n            \"data\": \"={{ $json.photo_base64 || '' }}\"\n          }\n        },\n        {\n          \"inline_data\": {\n            \"mime_type\": \"image/png\",\n            \"data\": \"={{ $json.dispenser_clean_base64 || '' }}\"\n          }\n        }\n      ]\n    }\n  ],\n  \"generationConfig\": {\n    \"responseModalities\": [\n      \"IMAGE\"\n    ]\n  }\n}","options":{}},"id":"67062737-2adb-425f-819d-34d57e2d8d3a","name":"Call Image Edit API","type":"n8n-nodes-base.httpRequest","position":[672,368],"typeVersion":4.2},{"parameters":{"jsCode":"// Расчет спецификации и сборка HTML коммерческого предложения\nconst items = $input.all().map(item => item.json);\nconst session = items[0]?.session || {};\nconst distributor = items[0]?.distributor || {};\nconst visualData = items[0]?.visual || {};\n\n// Извлечение сгенерированного изображения из структуры Google Gemini API\n// candidates[0].content.parts[0].inlineData.data (с поддержкой inline_data и fallback)\nlet base64Image = '';\nconst candidatePart = items[0]?.candidates?.[0]?.content?.parts?.[0];\nif (candidatePart?.inlineData?.data) {\n  base64Image = candidatePart.inlineData.data;\n} else if (candidatePart?.inline_data?.data) {\n  base64Image = candidatePart.inline_data.data;\n} else if (items[0]?.data?.[0]?.b64_json) {\n  base64Image = items[0].data[0].b64_json;\n} else if (items[0]?.rendered_image_base64) {\n  base64Image = items[0].rendered_image_base64;\n}\n\nconst mimeType = candidatePart?.inlineData?.mimeType || candidatePart?.inline_data?.mime_type || 'image/png';\nconst renderedImageDataUri = base64Image\n  ? `data:${mimeType};base64,${base64Image}`\n  : 'data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"240\" height=\"160\"><rect width=\"240\" height=\"160\" fill=\"%23edf2f7\"/><text x=\"50%\" y=\"50%\" dominant-baseline=\"middle\" text-anchor=\"middle\" fill=\"%23718096\" font-size=\"12\">Визуализация Tork Elevation</text></svg>';\n\nlet rowsHtml = '';\nlet totalSum = 0;\nlet rowIdx = 1;\n\nfor (const prod of items) {\n  if (!prod.sku) continue;\n  const qty = prod.category === 'dispenser'\n    ? 1\n    : Math.ceil(((session.daily_traffic || 100) * 30 * (prod.refill_norms?.daily_use_per_person || 2)) / (prod.refill_norms?.portions_per_unit || 1000));\n  const lineSum = Number(prod.price || 0) * qty;\n  totalSum += lineSum;\n\n  rowsHtml += `\n    <tr>\n      <td class=\"text-center\">${rowIdx++}</td>\n      <td><strong>${prod.sku}</strong></td>\n      <td>${prod.name || 'Продукция Tork'}</td>\n      <td class=\"text-center\"><span class=\"badge\">${prod.system_code || 'H1'}</span></td>\n      <td class=\"text-center\">${qty}</td>\n      <td class=\"text-right\">${Number(prod.price || 0).toLocaleString('ru-RU')} ₸</td>\n      <td class=\"text-right\"><strong>${lineSum.toLocaleString('ru-RU')} ₸</strong></td>\n    </tr>\n  `;\n}\n\nreturn [{\n  json: {\n    total_amount_formatted: totalSum.toLocaleString('ru-RU'),\n    table_rows_html: rowsHtml,\n    kp_number: 'TKZ-' + Date.now().toString().slice(-6),\n    kp_date: new Date().toLocaleDateString('ru-RU'),\n    distributor_name: distributor.name || 'ТОО \"Tork Kazakhstan Distribution Astana\"',\n    distributor_bin: distributor.bin || '210540032111',\n    distributor_city: distributor.city || 'Астана',\n    distributor_address: distributor.address || 'г. Астана, ул. Достык, 18',\n    distributor_phone: distributor.contact_phone || '+7 (7172) 79-55-01',\n    distributor_email: distributor.contact_email || 'astana@tork-distrib.kz',\n    client_name: session.client_name || 'Уважаемый клиент',\n    business_segment: session.business_segment || 'Коммерческий объект',\n    daily_traffic: session.daily_traffic || 100,\n    recommended_color_ru: visualData.recommended_color === 'black' ? 'Черный' : (visualData.recommended_color === 'stainless_steel' ? 'Нержавеющая сталь' : 'Белый'),\n    placement_instruction_ru: 'Монтаж на капитальную стену над/рядом с зоной раковины с соблюдением стандартов доступности Essity Tork.',\n    rendered_image_data_uri: renderedImageDataUri\n  }\n}];"},"id":"ea41df61-e0cb-42ce-865c-2b3f1fccd00c","name":"Calculate KP Bundle","type":"n8n-nodes-base.code","position":[880,368],"typeVersion":2},{"parameters":{"method":"POST","url":"={{ ($env.GOTENBERG_URL || 'http://gotenberg:3000') + '/forms/chromium/convert/html' }}","sendBody":true,"contentType":"multipart-form-data","bodyParameters":{"parameters":[{"name":"files"}]},"options":{}},"id":"b51d3e74-a11b-42c2-b3b3-b1b6b097d385","name":"Generate PDF via Gotenberg","type":"n8n-nodes-base.httpRequest","position":[1104,368],"typeVersion":4.2},{"parameters":{"chatId":"={{ $('Telegram Trigger').item.json.message.chat.id }}","text":"={{ '✅ Примерка оборудования Tork завершена!\n\nПодобран комплект системы Tork ' + $json.recommended_color_ru + '.\nИтоговая стоимость стартового комплекта и запаса расходников на 1 месяц: ' + $json.total_amount_formatted + ' ₸.\n\nПодробная спецификация прикреплена в файле КП.' }}","replyMarkup":"inlineKeyboard","inlineKeyboard":{"rows":[{"row":{"buttons":[{"text":"✅ Оформить тест-драйв в Казахстане","additionalFields":{"callback_data":"action_lead_testdrive"}}]}},{"row":{"buttons":[{"text":"🔄 Примерка в другом цвете","additionalFields":{"callback_data":"action_change_color"}}]}}]},"additionalFields":{"appendAttribution":false}},"id":"7656c978-b3aa-4e01-b562-9e9b9b9a56de","name":"Send Client Result & Inline Buttons","type":"n8n-nodes-base.telegram","position":[1328,368],"typeVersion":1.2,"webhookId":"1a4b077c-72db-444e-aa1a-37e4b697895d","credentials":{"telegramApi":{"id":"ildUvXJDz5GOalvb","name":"Telegram account"}}},{"parameters":{"chatId":"={{ $env.MANAGER_CHAT_ID }}","text":"={{ '🚨 Новая заявка на тест-драйв Tork (Казахстан)\n\nКлиент: ' + $('Telegram Trigger').item.json.message.from.first_name + ' (@' + ($('Telegram Trigger').item.json.message.from.username || 'нет') + ')\nСегмент: ' + $json.business_segment + '\nПроходимость: ' + $json.daily_traffic + ' чел/день\nСумма КП: ' + $json.total_amount_formatted + ' ₸\nГород дистрибьютора: ' + $json.distributor_city }}","additionalFields":{"appendAttribution":false}},"id":"f3342822-6a82-40d9-a623-b89661ee7299","name":"Notify Managers Group","type":"n8n-nodes-base.telegram","position":[1552,368],"typeVersion":1.2,"webhookId":"96ca4ea2-c46f-41ad-9d7b-158603b70503","credentials":{"telegramApi":{"id":"ildUvXJDz5GOalvb","name":"Telegram account"}}}],"connections":{"Telegram Trigger":{"main":[[{"node":"Check Media Type","type":"main","index":0}]]},"Check Media Type":{"main":[[{"node":"Reject Video Message","type":"main","index":0}],[{"node":"Upsert User Session","type":"main","index":0}]]},"Upsert User Session":{"main":[[{"node":"Route by Event Type","type":"main","index":0}]]},"Check Rate Limit":{"main":[[{"node":"Call VLM (OpenAI-Compatible)","type":"main","index":0}],[{"node":"Limit Exceeded Message","type":"main","index":0}]]},"Call VLM (OpenAI-Compatible)":{"main":[[{"node":"Query Products & Prices (SQL)","type":"main","index":0}]]},"Query Products & Prices (SQL)":{"main":[[{"node":"Call Image Edit API","type":"main","index":0}]]},"Call Image Edit API":{"main":[[{"node":"Calculate KP Bundle","type":"main","index":0}]]},"Calculate KP Bundle":{"main":[[{"node":"Generate PDF via Gotenberg","type":"main","index":0}]]},"Generate PDF via Gotenberg":{"main":[[{"node":"Send Client Result & Inline Buttons","type":"main","index":0}]]},"Send Client Result & Inline Buttons":{"main":[[{"node":"Notify Managers Group","type":"main","index":0}]]},"Route by Event Type":{"main":[[{"node":"Update Session Segment","type":"main","index":0}],[{"node":"Check Rate Limit","type":"main","index":0}],[{"node":"Send Segment Keyboard","type":"main","index":0}]]},"Update Session Segment":{"main":[[{"node":"Send Photo Request","type":"main","index":0}]]}},"settings":{"executionOrder":"v1","binaryMode":"separate","availableInMCP":false},"staticData":null,"meta":null,"nodeGroups":[],"pinData":{},"versionId":"02a1100c-fefb-4bc0-8161-32bfc894b68e","activeVersionId":null,"versionCounter":1,"triggerCount":1,"sourceWorkflowId":null,"tags":[],"shared":[{"updatedAt":"2026-10-15T22:08:19.747Z","createdAt":"2026-10-15T22:08:19.747Z","role":"workflow:owner","workflowId":"et5bObdDVdYXeF7Z","projectId":"NWK26yJ1iWE8rumu","project":{"updatedAt":"2026-10-15T20:13:53.897Z","createdAt":"2026-10-15T20:10:09.622Z","id":"NWK26yJ1iWE8rumu","name":"Erlan Kubesov <erlasha07@gmail.com>","type":"personal","icon":null,"description":null,"customTelemetryTags":[],"creatorId":"12f12650-a5aa-4f4e-b48e-d4457aafa621"}}],"versionMetadata":{"name":null,"description":null}}]
+[
+  {
+    "name": "Tork Bot Kazakhstan MVP",
+    "active": true,
+    "nodes": [
+      {
+        "parameters": {
+          "updates": [
+            "message",
+            "callback_query"
+          ],
+          "additionalFields": {}
+        },
+        "id": "ca983051-1e1e-47a2-841b-a879fe4a7354",
+        "name": "Telegram Trigger",
+        "type": "n8n-nodes-base.telegramTrigger",
+        "position": [
+          -880,
+          208
+        ],
+        "typeVersion": 1.1,
+        "webhookId": "6203b22d-7f6e-4731-b245-0f6a913edfa1",
+        "credentials": {
+          "telegramApi": {
+            "id": "ildUvXJDz5GOalvb",
+            "name": "Telegram account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 1
+            },
+            "conditions": [
+              {
+                "operator": {
+                  "operation": "equals",
+                  "type": "string"
+                },
+                "rightValue": "video",
+                "id": "c1",
+                "leftValue": "={{ $json.message?.video || $json.message?.video_note ? 'video' : (($json.message?.photo || ($json.message?.document && ($json.message.document.mime_type || '').startsWith('image/'))) ? 'photo' : ($json.callback_query ? 'callback' : 'text')) }}"
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "5ff7f1d0-e1e4-4861-ab42-3e69ca974010",
+        "name": "Check Media Type",
+        "type": "n8n-nodes-base.if",
+        "position": [
+          -656,
+          208
+        ],
+        "typeVersion": 2
+      },
+      {
+        "parameters": {
+          "chatId": "={{ $json.message?.chat?.id }}",
+          "text": "Для точного подбора и визуализации, пожалуйста, отправьте обычную фотографию стены и раковины санузла на расстоянии 1.5–2 метра.",
+          "additionalFields": {
+            "appendAttribution": false
+          }
+        },
+        "id": "322bbd66-0dcf-428e-bc7f-e2392922ead9",
+        "name": "Reject Video Message",
+        "type": "n8n-nodes-base.telegram",
+        "position": [
+          -448,
+          80
+        ],
+        "typeVersion": 1.2,
+        "webhookId": "1b4061ee-533e-4e63-bcff-35fa59adec9a",
+        "credentials": {
+          "telegramApi": {
+            "id": "ildUvXJDz5GOalvb",
+            "name": "Telegram account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "INSERT INTO user_sessions_leads (tg_user_id, tg_username, client_name, distributor_id, current_step) VALUES ({{ $('Telegram Trigger').item.json.message ? $('Telegram Trigger').item.json.message.from.id : $('Telegram Trigger').item.json.callback_query.from.id }}, '{{ ($('Telegram Trigger').item.json.message ? $('Telegram Trigger').item.json.message.from.username : $('Telegram Trigger').item.json.callback_query.from.username) || '' }}', '{{ ($('Telegram Trigger').item.json.message ? $('Telegram Trigger').item.json.message.from.first_name : $('Telegram Trigger').item.json.callback_query.from.first_name) || 'Клиент' }}', {{ $env.DEFAULT_DISTRIBUTOR_ID || 1 }}, 'START') ON CONFLICT (tg_user_id) DO UPDATE SET tg_username = EXCLUDED.tg_username, client_name = EXCLUDED.client_name RETURNING *;",
+          "options": {}
+        },
+        "id": "edab576e-e554-43c1-b3ca-7c90d20074df",
+        "name": "Upsert User Session",
+        "type": "n8n-nodes-base.postgres",
+        "position": [
+          -448,
+          320
+        ],
+        "typeVersion": 2.4,
+        "credentials": {
+          "postgres": {
+            "id": "ssRaEX0w25vYf2wI",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "rules": {
+            "values": [
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "operator": {
+                        "operation": "equals",
+                        "type": "string"
+                      },
+                      "rightValue": "callback",
+                      "id": "rule-callback",
+                      "leftValue": "={{ $('Telegram Trigger').item.json.callback_query ? 'callback' : (($('Telegram Trigger').item.json.message?.photo || ($('Telegram Trigger').item.json.message?.document && ($('Telegram Trigger').item.json.message.document.mime_type || '').startsWith('image/'))) ? 'photo' : 'other') }}"
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "callback_query"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "operator": {
+                        "operation": "equals",
+                        "type": "string"
+                      },
+                      "rightValue": "photo",
+                      "id": "rule-photo",
+                      "leftValue": "={{ $('Telegram Trigger').item.json.callback_query ? 'callback' : (($('Telegram Trigger').item.json.message?.photo || ($('Telegram Trigger').item.json.message?.document && ($('Telegram Trigger').item.json.message.document.mime_type || '').startsWith('image/'))) ? 'photo' : 'other') }}"
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "photo"
+              }
+            ]
+          },
+          "options": {
+            "fallbackOutput": "extra",
+            "renameFallbackOutput": "text_or_other"
+          }
+        },
+        "id": "5ced3bf1-9b81-4689-bd9b-e57e46e70428",
+        "name": "Route by Event Type",
+        "type": "n8n-nodes-base.switch",
+        "position": [
+          -224,
+          320
+        ],
+        "typeVersion": 3.2
+      },
+      {
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "UPDATE user_sessions_leads SET business_segment = '{{ ($('Telegram Trigger').item.json.callback_query.data || '').replace(/^seg_/, '') }}', current_step = 'AWAITING_PHOTO', updated_at = NOW() WHERE tg_user_id = {{ $('Telegram Trigger').item.json.callback_query.from.id }} RETURNING *;",
+          "options": {}
+        },
+        "id": "b2d4709b-0eef-43d0-91ec-5c0e6a21f1fd",
+        "name": "Update Session Segment",
+        "type": "n8n-nodes-base.postgres",
+        "position": [
+          0,
+          0
+        ],
+        "typeVersion": 2.4,
+        "credentials": {
+          "postgres": {
+            "id": "ssRaEX0w25vYf2wI",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "chatId": "={{ $('Telegram Trigger').item.json.callback_query.message ? $('Telegram Trigger').item.json.callback_query.message.chat.id : $('Telegram Trigger').item.json.callback_query.from.id }}",
+          "text": "✅ Тип объекта сохранен!\n\nШаг 2 из 2: Отправьте обычную фотографию зоны раковины и стены санузла (с расстояния 1.5–2 метра). Я подберу подходящую систему Tork и сделаю примерку.",
+          "additionalFields": {
+            "appendAttribution": false
+          }
+        },
+        "id": "e70c13b8-11e7-4a19-aeb9-5550e1a9fa7b",
+        "name": "Send Photo Request",
+        "type": "n8n-nodes-base.telegram",
+        "position": [
+          224,
+          0
+        ],
+        "typeVersion": 1.2,
+        "webhookId": "6dc594ea-e27b-4bf7-864a-b88e0630b59d",
+        "credentials": {
+          "telegramApi": {
+            "id": "ildUvXJDz5GOalvb",
+            "name": "Telegram account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "chatId": "={{ $('Telegram Trigger').item.json.message ? $('Telegram Trigger').item.json.message.chat.id : $('Telegram Trigger').item.json.callback_query.message.chat.id }}",
+          "text": "👋 Добро пожаловать в Tork AI Казахстан!\n\nЯ помогу подобрать оптимальный комплект диспенсеров и расходных материалов Tork (Essity), примерить их на фото вашего санузла и рассчитать точную стоимость.\n\nШаг 1 из 2. Выберите тип вашего объекта:",
+          "replyMarkup": "inlineKeyboard",
+          "inlineKeyboard": {
+            "rows": [
+              {
+                "row": {
+                  "buttons": [
+                    {
+                      "text": "🍽️ Кафе / Ресторан",
+                      "additionalFields": {
+                        "callback_data": "seg_HoReCa"
+                      }
+                    },
+                    {
+                      "text": "🏢 Офис / БЦ",
+                      "additionalFields": {
+                        "callback_data": "seg_Office"
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "row": {
+                  "buttons": [
+                    {
+                      "text": "🏥 Клиника / Мед.",
+                      "additionalFields": {
+                        "callback_data": "seg_Medical"
+                      }
+                    },
+                    {
+                      "text": "🏭 Производство",
+                      "additionalFields": {
+                        "callback_data": "seg_Industrial"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "additionalFields": {
+            "appendAttribution": false
+          }
+        },
+        "id": "809a43fb-8680-463c-8281-5fad436afffd",
+        "name": "Send Segment Keyboard",
+        "type": "n8n-nodes-base.telegram",
+        "position": [
+          0,
+          464
+        ],
+        "typeVersion": 1.2,
+        "webhookId": "fa3d1673-d111-4b1a-ae6d-acc9ab677691",
+        "credentials": {
+          "telegramApi": {
+            "id": "ildUvXJDz5GOalvb",
+            "name": "Telegram account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 1
+            },
+            "conditions": [
+              {
+                "operator": {
+                  "operation": "equals",
+                  "type": "string"
+                },
+                "rightValue": "ok",
+                "id": "rate-limit-cond",
+                "leftValue": "={{ $json.renders_today >= ($env.MAX_RENDERS_PER_USER_DAY || 5) && $json.last_render_date === new Date().toISOString().slice(0, 10) ? 'exceeded' : 'ok' }}"
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "30b303da-34b8-4656-a091-fc1b523f635e",
+        "name": "Check Rate Limit",
+        "type": "n8n-nodes-base.if",
+        "position": [
+          0,
+          272
+        ],
+        "typeVersion": 2
+      },
+      {
+        "parameters": {
+          "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+          "text": "Вы использовали дневной лимит визуализаций (5 в сутки). Наш менеджер в Казахстане свяжется с вами для индивидуального расчета и бесплатного тест-драйва оборудования.",
+          "additionalFields": {
+            "appendAttribution": false
+          }
+        },
+        "id": "f5d3cd3e-b5ef-4f76-8837-187a8d55a159",
+        "name": "Limit Exceeded Message",
+        "type": "n8n-nodes-base.telegram",
+        "position": [
+          224,
+          160
+        ],
+        "typeVersion": 1.2,
+        "webhookId": "30099b07-6c01-4339-bcc0-de8af1ebbd18",
+        "credentials": {
+          "telegramApi": {
+            "id": "ildUvXJDz5GOalvb",
+            "name": "Telegram account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "={{ ($env.VLM_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta/openai') + '/chat/completions' }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "={{ 'Bearer ' + $env.VLM_API_KEY }}"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({\n  model: 'gemini-3.8-flash',\n  messages: [\n    {\n      role: 'system',\n      content: 'Ты — технический эксперт по оснащению санузлов оборудованием Tork (Essity). Проанализируй фотографию помещения.\\n1. Определи, является ли фото валидным изображением санузла/умывальной зоны, где видна стена для монтажа диспенсера (is_valid_washroom: boolean). Если фото снято слишком близко, темно или это не санузел — укажи причину отказа на русском языке в поле rejection_reason.\\n2. Определи цветовую гамму и стиль интерьера и выбери рекомендуемый цвет оборудования (recommended_color: white, black или stainless_steel). Для темных, лофтовых и современных интерьеров выбирай black или stainless_steel, для классических светлых и медицинских — white.\\n3. Найди на фото раковину или зеркало как ориентир масштаба (стандартная ширина раковины = 55 см). Опиши на английском языке точное место на стене для вставки диспенсера для полотенец и дозатора мыла в поле placement_instruction_en (например: Mount the dispenser on the tiled wall to the right of the mirror, 25 cm above the sink counter).\\nВерни ответ СТРОГО в формате JSON.'\n    },\n    {\n      role: 'user',\n      content: [\n        {\n          type: 'text',\n          text: 'Пожалуйста, проанализируй это фото санузла.'\n        },\n        {\n          type: 'image_url',\n          image_url: {\n            url: $json.photo_base64_url\n          }\n        }\n      ]\n    }\n  ],\n  response_format: {\n    type: 'json_object'\n  }\n}) }}",
+          "options": {}
+        },
+        "id": "0ff70b39-1cd6-4b30-9891-55ffc162790e",
+        "name": "Call VLM (OpenAI-Compatible)",
+        "type": "n8n-nodes-base.httpRequest",
+        "position": [
+          224,
+          368
+        ],
+        "typeVersion": 4.2
+      },
+      {
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "WITH client_context AS (\n    SELECT \n        '{{ (() => { try { return JSON.parse($(\"Call VLM (OpenAI-Compatible)\").item.json.choices[0].message.content).recommended_color || \"white\"; } catch(e) { return \"white\"; } })() }}'::VARCHAR AS target_color,\n        '{{ $(\"Upsert User Session\").item.json.business_segment || \"HoReCa\" }}'::VARCHAR AS target_segment,\n        {{ $(\"Upsert User Session\").item.json.distributor_id || 1 }}::INT AS target_distributor_id\n),\nscored_dispensers AS (\n    SELECT \n        v.*,\n        (\n            CASE WHEN (SELECT target_segment FROM client_context) = ANY(v.segment_fit) THEN 50 ELSE 0 END +\n            CASE WHEN v.is_focus_item = TRUE THEN 40 ELSE 0 END +\n            CASE WHEN v.is_promo = TRUE THEN 10 ELSE 0 END\n        ) AS match_score,\n        ROW_NUMBER() OVER (\n            PARTITION BY v.product_type \n            ORDER BY \n                (\n                    CASE WHEN (SELECT target_segment FROM client_context) = ANY(v.segment_fit) THEN 50 ELSE 0 END +\n                    CASE WHEN v.is_focus_item = TRUE THEN 40 ELSE 0 END +\n                    CASE WHEN v.is_promo = TRUE THEN 10 ELSE 0 END\n                ) DESC,\n                v.priority_rank ASC,\n                v.sku ASC\n        ) AS rn\n    FROM v_products_active v, client_context ctx\n    WHERE v.category = 'dispenser'\n      AND v.product_type IN ('hand_towel', 'soap')\n      AND (\n          v.color = ctx.target_color\n          OR (\n              NOT EXISTS (\n                  SELECT 1 FROM v_products_active v2 \n                  WHERE v2.category = 'dispenser' \n                    AND v2.product_type = v.product_type \n                    AND v2.color = ctx.target_color\n              ) AND v.color = 'white'\n          )\n      )\n),\nselected_dispensers AS (\n    SELECT * FROM scored_dispensers WHERE rn = 1\n),\nscored_refills AS (\n    SELECT \n        v.*,\n        ROW_NUMBER() OVER (\n            PARTITION BY v.system_code \n            ORDER BY \n                v.priority_rank ASC,\n                v.is_focus_item DESC,\n                (CASE WHEN (SELECT target_segment FROM client_context) = ANY(v.segment_fit) THEN 50 ELSE 0 END) DESC,\n                v.sku ASC\n        ) AS rn\n    FROM v_products_active v\n    WHERE v.category = 'refill'\n      AND v.system_code IN (SELECT system_code FROM selected_dispensers)\n),\nselected_refills AS (\n    SELECT * FROM scored_refills WHERE rn = 1\n),\ncombined_items AS (\n    SELECT \n        sku, name, category, product_type, system_code, design_line, \n        color, traffic_level, dimensions_cm, refill_norms, \n        image_url, is_focus_item, price_eur, priority_rank, \n        margin_tier, segment_fit, is_promo, current_price_kzt,\n        1 AS sort_order\n    FROM selected_dispensers\n    UNION ALL\n    SELECT \n        sku, name, category, product_type, system_code, design_line, \n        color, traffic_level, dimensions_cm, refill_norms, \n        image_url, is_focus_item, price_eur, priority_rank, \n        margin_tier, segment_fit, is_promo, current_price_kzt,\n        2 AS sort_order\n    FROM selected_refills\n)\nSELECT \n    ci.*,\n    ci.current_price_kzt AS price,\n    d.currency,\n    d.name as distributor_name,\n    d.bin as distributor_bin,\n    d.city as distributor_city,\n    d.address as distributor_address,\n    d.contact_phone as distributor_phone,\n    d.contact_email as distributor_email\nFROM combined_items ci\nCROSS JOIN distributors d\nWHERE d.id = (SELECT target_distributor_id FROM client_context)\nORDER BY ci.sort_order, ci.product_type, ci.sku;",
+          "options": {}
+        },
+        "id": "70c4ac4f-c34c-4c53-ac3a-b17df401839b",
+        "name": "Query Products & Prices (SQL)",
+        "type": "n8n-nodes-base.postgres",
+        "position": [
+          448,
+          368
+        ],
+        "typeVersion": 2.4,
+        "credentials": {
+          "postgres": {
+            "id": "ssRaEX0w25vYf2wI",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "const fs = require('fs');\n\n// 1. Безопасно разбираем ответ VLM\nlet visualData = {};\ntry {\n  const content = $('Call VLM (OpenAI-Compatible)').first()?.json?.choices?.[0]?.message?.content || '{}';\n  const cleanJson = content.replace(/```json/gi, '').replace(/```/g, '').trim();\n  visualData = JSON.parse(cleanJson);\n} catch (e) {\n  visualData = {};\n}\n\n// 2. Находим выбранный диспенсер из SQL\nconst products = $('Query Products & Prices (SQL)').all().map(item => item.json);\nconst dispenser = products.find(p => p.category === 'dispenser') || products[0] || {};\nconst sku = dispenser.sku ? String(dispenser.sku).trim() : '552000';\n\n// 3. Загружаем изображение диспенсера из смонтированной папки /data/assets/images/\nlet dispenserBase64 = '';\nconst searchPaths = [\n  `/data/assets/images/${sku}.png`,\n  `/data/assets/images/${sku}.jpg`,\n  '/data/assets/images/552000.png'\n];\n\nfor (const p of searchPaths) {\n  try {\n    if (fs.existsSync(p)) {\n      dispenserBase64 = fs.readFileSync(p).toString('base64');\n      if (dispenserBase64) break;\n    }\n  } catch (err) {}\n}\n\nconst userPhotoBase64 = $('Prepare VLM & Session').first()?.json?.photo_base64 || '';\nconst placement = visualData.placement_instruction_en || 'Mount the dispenser on the wall to the side of the sink counter at eye level';\nconst dims = dispenser.dimensions_cm || { w: 33.7, h: 37.2 };\n\nreturn [{\n  json: {\n    dispenser,\n    dispenser_sku: sku,\n    dispenser_name: dispenser.name || 'Диспенсер Tork',\n    dispenser_clean_base64: dispenserBase64,\n    user_photo_base64: userPhotoBase64,\n    placement_instruction_en: placement,\n    dimensions_cm: dims,\n    recommended_color: visualData.recommended_color || 'white',\n    is_valid_washroom: visualData.is_valid_washroom !== false\n  }\n}];"
+        },
+        "id": "prepare-img-gen-node",
+        "name": "Prepare Image Generation",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          540,
+          368
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "={{ 'https://generativelanguage.googleapis.com/v1beta/models/' + ($env.IMAGE_EDIT_MODEL || 'gemini-3.1-flash-image') + ':generateContent?key=' + ($env.IMAGE_EDIT_API_KEY || $env.VLM_API_KEY) }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "x-goog-api-key",
+                "value": "={{ $env.IMAGE_EDIT_API_KEY || $env.VLM_API_KEY }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({\n  contents: [\n    {\n      parts: [\n        {\n          text: 'You are an expert AI photo editor for Tork (Essity). Mount and composite the exact Tork dispenser shown in the second image onto the washroom wall in the first image.\\nLocation on wall: ' + ($json.placement_instruction_en || 'Mount the dispenser on the wall to the side of the sink counter at eye level') + '.\\nPreserve the exact product shape, stainless steel metallic finish/color, front window, dispensing slot and Tork logo from the second reference image. Real product dimensions: width ' + ($json.dimensions_cm?.w || 33.7) + ' cm, height ' + ($json.dimensions_cm?.h || 37.2) + ' cm. Scale it realistically relative to the sink. Cast natural contact shadows onto the wall tiles matching room lighting. Return only the photorealistic composite image of the bathroom with the mounted dispenser.'\n        },\n        {\n          inline_data: {\n            mime_type: 'image/jpeg',\n            data: $json.user_photo_base64\n          }\n        },\n        {\n          inline_data: {\n            mime_type: 'image/png',\n            data: $json.dispenser_clean_base64\n          }\n        }\n      ]\n    }\n  ],\n  generationConfig: {\n    responseModalities: ['IMAGE']\n  }\n}) }}"
+        },
+        "onError": "continueRegularOutput",
+        "id": "fde13f4d-8b41-454f-b272-fa8025cdad42",
+        "name": "Call Image Edit API",
+        "type": "n8n-nodes-base.httpRequest",
+        "position": [
+          720,
+          368
+        ],
+        "typeVersion": 4.2
+      },
+      {
+        "parameters": {
+          "jsCode": "const fs = require('fs');\n\nconst products = $('Query Products & Prices (SQL)').all().map(item => item.json);\nconst session = $('Upsert User Session').first().json || {};\nconst distributor = products[0] || {};\nconst visualData = (() => {\n  try {\n    const raw = $('Call VLM (OpenAI-Compatible)').first().json.choices[0].message.content;\n    return JSON.parse(raw.replace(/```json/gi, '').replace(/```/g, '').trim());\n  } catch (e) {\n    return {};\n  }\n})();\n\n// Извлечение сгенерированного изображения из структуры Google Gemini API\nlet base64Image = '';\nlet mimeType = 'image/png';\n\nconst parts = $input.first()?.json?.candidates?.[0]?.content?.parts || [];\nconst imagePart = parts.find(p => (p.inlineData && p.inlineData.data) || (p.inline_data && p.inline_data.data));\n\nif (imagePart?.inlineData?.data) {\n  base64Image = imagePart.inlineData.data;\n  mimeType = imagePart.inlineData.mimeType || 'image/jpeg';\n} else if (imagePart?.inline_data?.data) {\n  base64Image = imagePart.inline_data.data;\n  mimeType = imagePart.inline_data.mime_type || 'image/jpeg';\n} else if ($input.first()?.json?.data?.[0]?.b64_json) {\n  base64Image = $input.first().json.data[0].b64_json;\n} else if ($input.first()?.json?.rendered_image_base64) {\n  base64Image = $input.first().json.rendered_image_base64;\n}\n\n// Надежный fallback: если API генерации не вернуло фото, берем оригинальное фото подобранного диспенсера Tork\nconst mainDispenser = products.find(p => p.category === 'dispenser') || products[0] || {};\nconst sku = mainDispenser.sku ? String(mainDispenser.sku).trim() : '552000';\n\nif (!base64Image) {\n  const fallbackPaths = [\n    `/data/assets/images/${sku}.png`,\n    `/data/assets/images/${sku}.jpg`,\n    '/data/assets/images/552000.png'\n  ];\n  for (const fp of fallbackPaths) {\n    try {\n      if (fs.existsSync(fp)) {\n        base64Image = fs.readFileSync(fp).toString('base64');\n        mimeType = 'image/png';\n        if (base64Image) break;\n      }\n    } catch (e) {}\n  }\n}\n\nlet rowsHtml = '';\nlet totalSum = 0;\nlet rowIdx = 1;\n\nfor (const prod of products) {\n  if (!prod.sku) continue;\n  const qty = prod.category === 'dispenser'\n    ? 1\n    : Math.ceil(((session.daily_traffic || 100) * 30 * (prod.refill_norms?.daily_use_per_person || 2)) / (prod.refill_norms?.portions_per_unit || 1000));\n  \n  const linePrice = Number(prod.current_price_kzt || prod.price || 0);\n  const lineSum = linePrice * qty;\n  totalSum += lineSum;\n\n  const imgUrl = prod.image_url || `http://cdn/images/${prod.sku}.png`;\n  const imgHtml = `<img src=\"${imgUrl}\" width=\"34\" height=\"34\" style=\"object-fit:contain; vertical-align:middle; margin-right:8px; border-radius:3px; border:1px solid #E2E8F0; background:#fff;\" />`;\n\n  rowsHtml += `\n    <tr>\n      <td class=\"text-center\">${rowIdx++}</td>\n      <td><strong>${prod.sku}</strong></td>\n      <td><div style=\"display:flex; align-items:center;\">${imgHtml}<span>${prod.name || 'Продукция Tork'}</span></div></td>\n      <td class=\"text-center\"><span class=\"badge\">${prod.system_code || 'H1'}</span></td>\n      <td class=\"text-center\">${qty}</td>\n      <td class=\"text-right\">${linePrice.toLocaleString('ru-RU')} ₸</td>\n      <td class=\"text-right\"><strong>${lineSum.toLocaleString('ru-RU')} ₸</strong></td>\n    </tr>\n  `;\n}\n\nconst colorRu = visualData.recommended_color === 'black' ? 'Черный' : (visualData.recommended_color === 'stainless_steel' ? 'Нержавеющая сталь' : 'Белый');\n\nconst tgTrigger = $('Telegram Trigger').first()?.json || {};\nconst tgUser = tgTrigger.message?.from || tgTrigger.callback_query?.from || {};\nconst clientName = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ') || session.client_name || 'Клиент';\nconst clientUsername = tgUser.username ? ('@' + tgUser.username) : 'нет';\n\nconst managerNotificationText = [\n  '🚨 Новая заявка на тест-драйв Tork (Казахстан)',\n  '',\n  'Клиент: ' + clientName + ' (' + clientUsername + ')',\n  'Сегмент: ' + (session.business_segment || 'Коммерческий объект'),\n  'Проходимость: ' + (session.daily_traffic || 100) + ' чел/день',\n  'Рекомендовано: ' + (mainDispenser.name || 'Диспенсер Tork') + ' (' + colorRu + '), арт. ' + sku,\n  'Сумма КП: ' + totalSum.toLocaleString('ru-RU') + ' ₸',\n  'Город: ' + (distributor.distributor_city || 'Астана')\n].join('\\n');\n\nconst outputItem = {\n  json: {\n    total_amount_formatted: totalSum.toLocaleString('ru-RU'),\n    total_amount: totalSum,\n    table_rows_html: rowsHtml,\n    kp_number: 'TKZ-' + Date.now().toString().slice(-6),\n    kp_date: new Date().toLocaleDateString('ru-RU'),\n    distributor_name: distributor.distributor_name || 'ТОО \"Tork Kazakhstan Distribution Astana\"',\n    distributor_bin: distributor.distributor_bin || '210540032111',\n    distributor_city: distributor.distributor_city || 'Астана',\n    distributor_address: distributor.distributor_address || 'г. Астана, ул. Достык, 18',\n    distributor_phone: distributor.distributor_phone || '+7 (7172) 79-55-01',\n    distributor_email: distributor.distributor_email || 'astana@tork-distrib.kz',\n    client_name: clientName,\n    business_segment: session.business_segment || 'Коммерческий объект',\n    daily_traffic: session.daily_traffic || 100,\n    dispenser_name: mainDispenser.name || 'Диспенсер Tork',\n    dispenser_sku: sku,\n    recommended_color_ru: colorRu,\n    has_rendered_image: Boolean(base64Image),\n    manager_notification_text: managerNotificationText\n  }\n};\n\nif (base64Image) {\n  outputItem.binary = {\n    data: {\n      data: base64Image,\n      mimeType: mimeType,\n      fileName: 'tork_visualization.png'\n    }\n  };\n}\n\nreturn [outputItem];"
+        },
+        "id": "7210c5c9-5383-4d27-a3c3-c5ee066999ca",
+        "name": "Calculate KP Bundle",
+        "type": "n8n-nodes-base.code",
+        "position": [
+          920,
+          368
+        ],
+        "typeVersion": 2
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "={{ ($env.GOTENBERG_URL || 'http://gotenberg:3000') + '/forms/chromium/convert/html' }}",
+          "sendBody": true,
+          "contentType": "multipart-form-data",
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "files"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "onError": "continueRegularOutput",
+        "id": "33097567-4e40-41ef-b6b8-ad2d8d9c82dc",
+        "name": "Generate PDF via Gotenberg",
+        "type": "n8n-nodes-base.httpRequest",
+        "position": [
+          1120,
+          200
+        ],
+        "typeVersion": 4.2
+      },
+      {
+        "parameters": {
+          "resource": "message",
+          "operation": "sendPhoto",
+          "chatId": "={{ $('Telegram Trigger').first().json.message ? $('Telegram Trigger').first().json.message.chat.id : $('Telegram Trigger').first().json.callback_query.message.chat.id }}",
+          "binaryData": true,
+          "binaryPropertyName": "data",
+          "caption": "={{ '✅ Примерка оборудования Tork завершена!\n\n🔹 Рекомендованная система: ' + $json.dispenser_name + ' (' + $json.recommended_color_ru + ')\n🔹 Артикул: ' + $json.dispenser_sku + '\n💰 Итоговая стоимость комплекта с расходниками на 1 месяц: ' + $json.total_amount_formatted + ' ₸.\n\nВыберите действие:' }}",
+          "replyMarkup": "inlineKeyboard",
+          "inlineKeyboard": {
+            "rows": [
+              {
+                "row": {
+                  "buttons": [
+                    {
+                      "text": "✅ Оформить тест-драйв в Казахстане",
+                      "additionalFields": {
+                        "callback_data": "action_lead_testdrive"
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "row": {
+                  "buttons": [
+                    {
+                      "text": "🔄 Примерка в другом цвете",
+                      "additionalFields": {
+                        "callback_data": "action_change_color"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "additionalFields": {
+            "appendAttribution": false
+          }
+        },
+        "id": "e34abaf9-7bae-444d-8896-3f08cf741ea2",
+        "name": "Send Client Result & Inline Buttons",
+        "type": "n8n-nodes-base.telegram",
+        "position": [
+          1140,
+          368
+        ],
+        "typeVersion": 1.2,
+        "webhookId": "b155dbe6-bf23-40d0-8924-016e33eca311",
+        "credentials": {
+          "telegramApi": {
+            "id": "ildUvXJDz5GOalvb",
+            "name": "Telegram account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "chatId": "={{ $env.MANAGER_CHAT_ID }}",
+          "text": "={{ $('Calculate KP Bundle').first().json.manager_notification_text }}",
+          "additionalFields": {
+            "appendAttribution": false
+          }
+        },
+        "id": "a6434a45-8d7b-45c8-9668-ddac9969bf98",
+        "name": "Notify Managers Group",
+        "type": "n8n-nodes-base.telegram",
+        "position": [
+          1360,
+          368
+        ],
+        "typeVersion": 1.2,
+        "webhookId": "e8cfce80-9297-459d-b7d3-272ae20caa21",
+        "credentials": {
+          "telegramApi": {
+            "id": "ildUvXJDz5GOalvb",
+            "name": "Telegram account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "resource": "file",
+          "operation": "get",
+          "fileId": "={{ $('Telegram Trigger').first().json.message?.photo ? $('Telegram Trigger').first().json.message.photo.slice(-1)[0].file_id : $('Telegram Trigger').first().json.message?.document?.file_id }}"
+        },
+        "id": "download-tg-photo-node",
+        "name": "Download Telegram Photo",
+        "type": "n8n-nodes-base.telegram",
+        "typeVersion": 1.2,
+        "position": [
+          140,
+          272
+        ],
+        "credentials": {
+          "telegramApi": {
+            "id": "ildUvXJDz5GOalvb",
+            "name": "Telegram account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "const binaryObj = $input.first()?.binary;\nconst propName = binaryObj ? (binaryObj.data ? 'data' : Object.keys(binaryObj)[0]) : null;\nlet b64 = '';\n\nif (propName) {\n  try {\n    if (this.helpers && typeof this.helpers.getBinaryDataBuffer === 'function') {\n      const buf = await this.helpers.getBinaryDataBuffer(0, propName);\n      if (buf && buf.length > 0) {\n        b64 = buf.toString('base64');\n      }\n    }\n  } catch (e) {}\n\n  if (!b64 && binaryObj[propName]?.data && binaryObj[propName].data !== 'filesystem-v2') {\n    b64 = binaryObj[propName].data;\n  }\n}\n\nconst mime = (propName && binaryObj[propName]?.mimeType) || 'image/jpeg';\nconst session = $('Upsert User Session').first().json || {};\nreturn [{\n  json: {\n    ...session,\n    photo_base64: b64,\n    photo_base64_url: `data:${mime};base64,${b64}`,\n    vlm_model: 'gemini-3.8-flash'\n  }\n}];"
+        },
+        "id": "prep-vlm-session-node",
+        "name": "Prepare VLM & Session",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          320,
+          272
+        ]
+      }
+    ],
+    "connections": {
+      "Telegram Trigger": {
+        "main": [
+          [
+            {
+              "node": "Check Media Type",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Check Media Type": {
+        "main": [
+          [
+            {
+              "node": "Reject Video Message",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Upsert User Session",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Upsert User Session": {
+        "main": [
+          [
+            {
+              "node": "Route by Event Type",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Check Rate Limit": {
+        "main": [
+          [
+            {
+              "node": "Download Telegram Photo",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Limit Exceeded Message",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Call VLM (OpenAI-Compatible)": {
+        "main": [
+          [
+            {
+              "node": "Query Products & Prices (SQL)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Query Products & Prices (SQL)": {
+        "main": [
+          [
+            {
+              "node": "Prepare Image Generation",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Prepare Image Generation": {
+        "main": [
+          [
+            {
+              "node": "Call Image Edit API",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Call Image Edit API": {
+        "main": [
+          [
+            {
+              "node": "Calculate KP Bundle",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Calculate KP Bundle": {
+        "main": [
+          [
+            {
+              "node": "Send Client Result & Inline Buttons",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Send Client Result & Inline Buttons": {
+        "main": [
+          [
+            {
+              "node": "Notify Managers Group",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Route by Event Type": {
+        "main": [
+          [
+            {
+              "node": "Update Session Segment",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Check Rate Limit",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Send Segment Keyboard",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Update Session Segment": {
+        "main": [
+          [
+            {
+              "node": "Send Photo Request",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Download Telegram Photo": {
+        "main": [
+          [
+            {
+              "node": "Prepare VLM & Session",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Prepare VLM & Session": {
+        "main": [
+          [
+            {
+              "node": "Call VLM (OpenAI-Compatible)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "createdAt": "2026-10-15T22:34:32.844Z",
+    "updatedAt": "2026-10-15T22:34:32.844Z",
+    "settings": {
+      "executionOrder": "v1",
+      "binaryMode": "separate",
+      "availableInMCP": false
+    },
+    "staticData": null,
+    "pinData": {},
+    "versionId": "e9de753c-cde3-4f3e-b35f-d3eff7897bc9",
+    "triggerCount": 1,
+    "id": "zF67bIQS8ypAMElC",
+    "meta": null,
+    "parentFolderId": null,
+    "isArchived": false,
+    "versionCounter": 1,
+    "description": null,
+    "activeVersionId": "e9de753c-cde3-4f3e-b35f-d3eff7897bc9",
+    "nodeGroups": [],
+    "sourceWorkflowId": null
+  }
+]

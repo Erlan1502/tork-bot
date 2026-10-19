@@ -33,6 +33,17 @@ services:
     networks:
       - tork_net
 
+  cdn:
+    image: nginx:alpine
+    container_name: tork_cdn
+    restart: unless-stopped
+    volumes:
+      - ./assets/images:/usr/share/nginx/html/images:ro
+    ports:
+      - '8088:80'
+    networks:
+      - tork_net
+
   n8n:
     image: docker.n8n.io/n8nio/n8n:latest
     container_name: tork_n8n
@@ -57,7 +68,7 @@ services:
       - N8N_PORT=5678
       - N8N_PROTOCOL=${N8N_PROTOCOL:-http}
       - WEBHOOK_URL=${WEBHOOK_URL}
-      - N8N_DEFAULT_BINARY_DATA_MODE=filesystem
+      - N8N_DEFAULT_BINARY_DATA_MODE=default
       - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
       - NODE_FUNCTION_ALLOW_BUILTIN=fs,path
       - GENERIC_TIMEZONE=Asia/Almaty
