@@ -15,7 +15,7 @@
         "name": "Telegram Trigger",
         "type": "n8n-nodes-base.telegramTrigger",
         "position": [
-          -880,
+          -1100,
           208
         ],
         "typeVersion": 1.1,
@@ -26,6 +26,39 @@
             "name": "Telegram account"
           }
         }
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 1
+            },
+            "conditions": [
+              {
+                "operator": {
+                  "operation": "equals",
+                  "type": "string"
+                },
+                "rightValue": "private",
+                "id": "filter-chat-type",
+                "leftValue": "={{ $json.message ? $json.message.chat.type : ($json.callback_query?.message ? $json.callback_query.message.chat.type : 'unknown') }}"
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "da769cf4-1556-4646-ba8f-c14dcc0f44a0",
+        "name": "Filter Private Chat Only",
+        "type": "n8n-nodes-base.if",
+        "position": [
+          -880,
+          208
+        ],
+        "typeVersion": 2
       },
       {
         "parameters": {
@@ -438,7 +471,7 @@
       },
       {
         "parameters": {
-          "jsCode": "const fs = require('fs');\n\nconst products = $('Query Products & Prices (SQL)').all().map(item => item.json);\nconst session = $('Upsert User Session').first().json || {};\nconst distributor = products[0] || {};\nconst visualData = (() => {\n  try {\n    const raw = $('Call VLM (OpenAI-Compatible)').first().json.choices[0].message.content;\n    return JSON.parse(raw.replace(/```json/gi, '').replace(/```/g, '').trim());\n  } catch (e) {\n    return {};\n  }\n})();\n\n// Извлечение сгенерированного изображения из структуры Google Gemini API\nlet base64Image = '';\nlet mimeType = 'image/png';\n\nconst parts = $input.first()?.json?.candidates?.[0]?.content?.parts || [];\nconst imagePart = parts.find(p => (p.inlineData && p.inlineData.data) || (p.inline_data && p.inline_data.data));\n\nif (imagePart?.inlineData?.data) {\n  base64Image = imagePart.inlineData.data;\n  mimeType = imagePart.inlineData.mimeType || 'image/jpeg';\n} else if (imagePart?.inline_data?.data) {\n  base64Image = imagePart.inline_data.data;\n  mimeType = imagePart.inline_data.mime_type || 'image/jpeg';\n} else if ($input.first()?.json?.data?.[0]?.b64_json) {\n  base64Image = $input.first().json.data[0].b64_json;\n} else if ($input.first()?.json?.rendered_image_base64) {\n  base64Image = $input.first().json.rendered_image_base64;\n}\n\n// Надежный fallback: если API генерации не вернуло фото, берем оригинальное фото подобранного диспенсера Tork\nconst mainDispenser = products.find(p => p.category === 'dispenser') || products[0] || {};\nconst sku = mainDispenser.sku ? String(mainDispenser.sku).trim() : '552000';\n\nif (!base64Image) {\n  const fallbackPaths = [\n    `/data/assets/images/${sku}.png`,\n    `/data/assets/images/${sku}.jpg`,\n    '/data/assets/images/552000.png'\n  ];\n  for (const fp of fallbackPaths) {\n    try {\n      if (fs.existsSync(fp)) {\n        base64Image = fs.readFileSync(fp).toString('base64');\n        mimeType = 'image/png';\n        if (base64Image) break;\n      }\n    } catch (e) {}\n  }\n}\n\nlet rowsHtml = '';\nlet totalSum = 0;\nlet rowIdx = 1;\n\nfor (const prod of products) {\n  if (!prod.sku) continue;\n  const qty = prod.category === 'dispenser'\n    ? 1\n    : Math.ceil(((session.daily_traffic || 100) * 30 * (prod.refill_norms?.daily_use_per_person || 2)) / (prod.refill_norms?.portions_per_unit || 1000));\n  \n  const linePrice = Number(prod.current_price_kzt || prod.price || 0);\n  const lineSum = linePrice * qty;\n  totalSum += lineSum;\n\n  const imgUrl = prod.image_url || `http://cdn/images/${prod.sku}.png`;\n  const imgHtml = `<img src=\"${imgUrl}\" width=\"34\" height=\"34\" style=\"object-fit:contain; vertical-align:middle; margin-right:8px; border-radius:3px; border:1px solid #E2E8F0; background:#fff;\" />`;\n\n  rowsHtml += `\n    <tr>\n      <td class=\"text-center\">${rowIdx++}</td>\n      <td><strong>${prod.sku}</strong></td>\n      <td><div style=\"display:flex; align-items:center;\">${imgHtml}<span>${prod.name || 'Продукция Tork'}</span></div></td>\n      <td class=\"text-center\"><span class=\"badge\">${prod.system_code || 'H1'}</span></td>\n      <td class=\"text-center\">${qty}</td>\n      <td class=\"text-right\">${linePrice.toLocaleString('ru-RU')} ₸</td>\n      <td class=\"text-right\"><strong>${lineSum.toLocaleString('ru-RU')} ₸</strong></td>\n    </tr>\n  `;\n}\n\nconst colorRu = visualData.recommended_color === 'black' ? 'Черный' : (visualData.recommended_color === 'stainless_steel' ? 'Нержавеющая сталь' : 'Белый');\n\nconst tgTrigger = $('Telegram Trigger').first()?.json || {};\nconst tgUser = tgTrigger.message?.from || tgTrigger.callback_query?.from || {};\nconst clientName = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ') || session.client_name || 'Клиент';\nconst clientUsername = tgUser.username ? ('@' + tgUser.username) : 'нет';\n\nconst managerNotificationText = [\n  '🚨 Новая заявка на тест-драйв Tork (Казахстан)',\n  '',\n  'Клиент: ' + clientName + ' (' + clientUsername + ')',\n  'Сегмент: ' + (session.business_segment || 'Коммерческий объект'),\n  'Проходимость: ' + (session.daily_traffic || 100) + ' чел/день',\n  'Рекомендовано: ' + (mainDispenser.name || 'Диспенсер Tork') + ' (' + colorRu + '), арт. ' + sku,\n  'Сумма КП: ' + totalSum.toLocaleString('ru-RU') + ' ₸',\n  'Город: ' + (distributor.distributor_city || 'Астана')\n].join('\\n');\n\nconst outputItem = {\n  json: {\n    total_amount_formatted: totalSum.toLocaleString('ru-RU'),\n    total_amount: totalSum,\n    table_rows_html: rowsHtml,\n    kp_number: 'TKZ-' + Date.now().toString().slice(-6),\n    kp_date: new Date().toLocaleDateString('ru-RU'),\n    distributor_name: distributor.distributor_name || 'ТОО \"Tork Kazakhstan Distribution Astana\"',\n    distributor_bin: distributor.distributor_bin || '210540032111',\n    distributor_city: distributor.distributor_city || 'Астана',\n    distributor_address: distributor.distributor_address || 'г. Астана, ул. Достык, 18',\n    distributor_phone: distributor.distributor_phone || '+7 (7172) 79-55-01',\n    distributor_email: distributor.distributor_email || 'astana@tork-distrib.kz',\n    client_name: clientName,\n    business_segment: session.business_segment || 'Коммерческий объект',\n    daily_traffic: session.daily_traffic || 100,\n    dispenser_name: mainDispenser.name || 'Диспенсер Tork',\n    dispenser_sku: sku,\n    recommended_color_ru: colorRu,\n    has_rendered_image: Boolean(base64Image),\n    manager_notification_text: managerNotificationText\n  }\n};\n\nif (base64Image) {\n  outputItem.binary = {\n    data: {\n      data: base64Image,\n      mimeType: mimeType,\n      fileName: 'tork_visualization.png'\n    }\n  };\n}\n\nreturn [outputItem];"
+          "jsCode": "const fs = require('fs');\n\nconst products = $('Query Products & Prices (SQL)').all().map(item => item.json);\nconst session = $('Upsert User Session').first().json || {};\nconst distributor = products[0] || {};\nconst visualData = (() => {\n  try {\n    const raw = $('Call VLM (OpenAI-Compatible)').first().json.choices[0].message.content;\n    return JSON.parse(raw.replace(/\\`\\`\\`json/gi, '').replace(/\\`\\`\\`/g, '').trim());\n  } catch (e) {\n    return {};\n  }\n})();\n\n// Извлечение сгенерированного изображения из структуры Google Gemini API\nlet base64Image = '';\nlet mimeType = 'image/png';\n\nconst parts = $input.first()?.json?.candidates?.[0]?.content?.parts || [];\nconst imagePart = parts.find(p => (p.inlineData && p.inlineData.data) || (p.inline_data && p.inline_data.data));\n\nif (imagePart?.inlineData?.data) {\n  base64Image = imagePart.inlineData.data;\n  mimeType = imagePart.inlineData.mimeType || 'image/jpeg';\n} else if (imagePart?.inline_data?.data) {\n  base64Image = imagePart.inline_data.data;\n  mimeType = imagePart.inline_data.mime_type || 'image/jpeg';\n} else if ($input.first()?.json?.data?.[0]?.b64_json) {\n  base64Image = $input.first().json.data[0].b64_json;\n} else if ($input.first()?.json?.rendered_image_base64) {\n  base64Image = $input.first().json.rendered_image_base64;\n}\n\n// Надежный fallback: если API генерации не вернуло фото, берем оригинальное фото подобранного диспенсера Tork\nconst mainDispenser = products.find(p => p.category === 'dispenser') || products[0] || {};\nconst sku = mainDispenser.sku ? String(mainDispenser.sku).trim() : '552000';\n\nif (!base64Image) {\n  const fallbackPaths = [\n    `/data/assets/images/${sku}.png`,\n    `/data/assets/images/${sku}.jpg`,\n    '/data/assets/images/552000.png'\n  ];\n  for (const fp of fallbackPaths) {\n    try {\n      if (fs.existsSync(fp)) {\n        base64Image = fs.readFileSync(fp).toString('base64');\n        mimeType = 'image/png';\n        if (base64Image) break;\n      }\n    } catch (e) {}\n  }\n}\n\nlet rowsHtml = '';\nlet totalSum = 0;\nlet rowIdx = 1;\n\nfor (const prod of products) {\n  if (!prod.sku) continue;\n  const qty = prod.category === 'dispenser'\n    ? 1\n    : Math.ceil(((session.daily_traffic || 100) * 30 * (prod.refill_norms?.daily_use_per_person || 2)) / (prod.refill_norms?.portions_per_unit || 1000));\n  \n  const linePrice = Number(prod.current_price_kzt || prod.price || 0);\n  const lineSum = linePrice * qty;\n  totalSum += lineSum;\n\n  const imgUrl = prod.image_url || `http://cdn/images/${prod.sku}.png`;\n  const imgHtml = `<img src=\"${imgUrl}\" width=\"34\" height=\"34\" style=\"object-fit:contain; vertical-align:middle; margin-right:8px; border-radius:3px; border:1px solid #E2E8F0; background:#fff;\" />`;\n\n  rowsHtml += `\n    <tr>\n      <td class=\"text-center\">${rowIdx++}</td>\n      <td><strong>${prod.sku}</strong></td>\n      <td><div style=\"display:flex; align-items:center;\">${imgHtml}<span>${prod.name || 'Продукция Tork'}</span></div></td>\n      <td class=\"text-center\"><span class=\"badge\">${prod.system_code || 'H1'}</span></td>\n      <td class=\"text-center\">${qty}</td>\n      <td class=\"text-right\">${linePrice.toLocaleString('ru-RU')} ₸</td>\n      <td class=\"text-right\"><strong>${lineSum.toLocaleString('ru-RU')} ₸</strong></td>\n    </tr>\n  `;\n}\n\nconst colorRu = visualData.recommended_color === 'black' ? 'Черный' : (visualData.recommended_color === 'stainless_steel' ? 'Нержавеющая сталь' : 'Белый');\nconst placementInstructionRu = visualData.placement_instruction_ru || 'Монтаж настенного диспенсера в умывальной зоне рядом с раковиной на высоте 110–120 см от уровня чистого пола для комфортного бесконтактного доступа.';\n\nconst tgTrigger = $('Telegram Trigger').first()?.json || {};\nconst tgUser = tgTrigger.message?.from || tgTrigger.callback_query?.from || {};\nconst clientName = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ') || session.client_name || 'Клиент';\nconst clientUsername = tgUser.username ? ('@' + tgUser.username) : 'нет';\n\nconst kpNumber = 'TKZ-' + Date.now().toString().slice(-6);\nconst kpDate = new Date().toLocaleDateString('ru-RU');\nconst distributorName = distributor.distributor_name || 'ТОО \"Tork Kazakhstan Distribution Astana\"';\nconst distributorBin = distributor.distributor_bin || '210540032111';\nconst distributorCity = distributor.distributor_city || 'Астана';\nconst distributorAddress = distributor.distributor_address || 'г. Астана, ул. Достык, 18';\nconst distributorPhone = distributor.distributor_phone || '+7 (7172) 79-55-01';\nconst distributorEmail = distributor.distributor_email || 'astana@tork-distrib.kz';\nconst businessSegment = session.business_segment || 'Коммерческий объект';\nconst dailyTraffic = session.daily_traffic || 100;\nconst totalAmountFormatted = totalSum.toLocaleString('ru-RU');\nconst renderedImageDataUri = base64Image ? `data:${mimeType};base64,${base64Image}` : '';\n\n// 1. Считывание и интерполяция HTML-шаблона КП\nconst templatePath = '/data/templates/kp_template.html';\nlet htmlContent = '';\ntry {\n  htmlContent = fs.readFileSync(templatePath, 'utf8');\n} catch (e) {\n  htmlContent = '<html><body><h1>Коммерческое предложение Tork</h1></body></html>';\n}\n\nconst templateReplacements = {\n  distributor_name: distributorName,\n  distributor_bin: distributorBin,\n  distributor_city: distributorCity,\n  distributor_address: distributorAddress,\n  distributor_phone: distributorPhone,\n  distributor_email: distributorEmail,\n  kp_number: kpNumber,\n  kp_date: kpDate,\n  client_name: clientName,\n  business_segment: businessSegment,\n  daily_traffic: dailyTraffic,\n  rendered_image_data_uri: renderedImageDataUri,\n  recommended_color_ru: colorRu,\n  placement_instruction_ru: placementInstructionRu,\n  table_rows_html: rowsHtml,\n  total_amount_formatted: totalAmountFormatted\n};\n\nfor (const [key, val] of Object.entries(templateReplacements)) {\n  const reg = new RegExp('\\\\{\\\\{\\\\s*' + key + '\\\\s*\\\\}\\\\}', 'g');\n  htmlContent = htmlContent.replace(reg, String(val ?? ''));\n}\n\nconst htmlBase64 = Buffer.from(htmlContent, 'utf8').toString('base64');\n\nconst managerNotificationText = [\n  '🚨 Новая заявка на тест-драйв Tork (Казахстан)',\n  '',\n  'Клиент: ' + clientName + ' (' + clientUsername + ')',\n  'Сегмент: ' + businessSegment,\n  'Проходимость: ' + dailyTraffic + ' чел/день',\n  'Рекомендовано: ' + (mainDispenser.name || 'Диспенсер Tork') + ' (' + colorRu + '), арт. ' + sku,\n  'Сумма КП: ' + totalAmountFormatted + ' ₸',\n  'Город: ' + distributorCity\n].join(String.fromCharCode(10));\n\n// 2. Бинарные данные: files (index.html) и visualization (tork_visualization.png)\nconst outputBinary = {\n  files: {\n    data: htmlBase64,\n    mimeType: 'text/html',\n    fileName: 'index.html'\n  }\n};\n\nif (base64Image) {\n  outputBinary.visualization = {\n    data: base64Image,\n    mimeType: mimeType,\n    fileName: 'tork_visualization.png'\n  };\n}\n\nreturn [{\n  json: {\n    total_amount_formatted: totalAmountFormatted,\n    total_amount: totalSum,\n    table_rows_html: rowsHtml,\n    kp_number: kpNumber,\n    kp_date: kpDate,\n    distributor_name: distributorName,\n    distributor_bin: distributorBin,\n    distributor_city: distributorCity,\n    distributor_address: distributorAddress,\n    distributor_phone: distributorPhone,\n    distributor_email: distributorEmail,\n    client_name: clientName,\n    business_segment: businessSegment,\n    daily_traffic: dailyTraffic,\n    dispenser_name: mainDispenser.name || 'Диспенсер Tork',\n    dispenser_sku: sku,\n    recommended_color_ru: colorRu,\n    has_rendered_image: Boolean(base64Image),\n    manager_notification_text: managerNotificationText\n  },\n  binary: outputBinary\n}];"
         },
         "id": "7210c5c9-5383-4d27-a3c3-c5ee066999ca",
         "name": "Calculate KP Bundle",
@@ -458,19 +491,28 @@
           "bodyParameters": {
             "parameters": [
               {
-                "name": "files"
+                "parameterType": "formBinaryData",
+                "name": "files",
+                "inputDataFieldName": "files"
               }
             ]
           },
-          "options": {}
+          "options": {
+            "response": {
+              "response": {
+                "responseFormat": "file",
+                "outputPropertyName": "pdf"
+              }
+            }
+          }
         },
         "onError": "continueRegularOutput",
         "id": "33097567-4e40-41ef-b6b8-ad2d8d9c82dc",
         "name": "Generate PDF via Gotenberg",
         "type": "n8n-nodes-base.httpRequest",
         "position": [
-          1120,
-          200
+          1140,
+          368
         ],
         "typeVersion": 4.2
       },
@@ -480,7 +522,7 @@
           "operation": "sendPhoto",
           "chatId": "={{ $('Telegram Trigger').first().json.message ? $('Telegram Trigger').first().json.message.chat.id : $('Telegram Trigger').first().json.callback_query.message.chat.id }}",
           "binaryData": true,
-          "binaryPropertyName": "data",
+          "binaryPropertyName": "visualization",
           "caption": "={{ '✅ Примерка оборудования Tork завершена!\n\n🔹 Рекомендованная система: ' + $json.dispenser_name + ' (' + $json.recommended_color_ru + ')\n🔹 Артикул: ' + $json.dispenser_sku + '\n💰 Итоговая стоимость комплекта с расходниками на 1 месяц: ' + $json.total_amount_formatted + ' ₸.\n\nВыберите действие:' }}",
           "replyMarkup": "inlineKeyboard",
           "inlineKeyboard": {
@@ -519,7 +561,7 @@
         "name": "Send Client Result & Inline Buttons",
         "type": "n8n-nodes-base.telegram",
         "position": [
-          1140,
+          1360,
           368
         ],
         "typeVersion": 1.2,
@@ -543,7 +585,7 @@
         "name": "Notify Managers Group",
         "type": "n8n-nodes-base.telegram",
         "position": [
-          1360,
+          1800,
           368
         ],
         "typeVersion": 1.2,
@@ -588,6 +630,35 @@
           320,
           272
         ]
+      },
+      {
+        "parameters": {
+          "resource": "message",
+          "operation": "sendDocument",
+          "chatId": "={{ $('Telegram Trigger').first().json.message ? $('Telegram Trigger').first().json.message.chat.id : $('Telegram Trigger').first().json.callback_query.message.chat.id }}",
+          "binaryData": true,
+          "binaryPropertyName": "={{ $('Generate PDF via Gotenberg').item.binary.pdf || $('Generate PDF via Gotenberg').first().binary.pdf }}",
+          "caption": "={{ '📄 Официальное коммерческое предложение № ' + $('Calculate KP Bundle').first().json.kp_number }}",
+          "additionalFields": {
+            "caption": "={{ '📄 Официальное коммерческое предложение № ' + $('Calculate KP Bundle').first().json.kp_number }}",
+            "fileName": "={{ 'KP_Tork_' + $('Calculate KP Bundle').first().json.kp_number + '.pdf' }}",
+            "appendAttribution": false
+          }
+        },
+        "id": "9a2b3c4d-5e6f-4012-89ab-cdef01234567",
+        "name": "Send Client PDF Document",
+        "type": "n8n-nodes-base.telegram",
+        "position": [
+          1580,
+          368
+        ],
+        "typeVersion": 1.2,
+        "credentials": {
+          "telegramApi": {
+            "id": "ildUvXJDz5GOalvb",
+            "name": "Telegram account"
+          }
+        }
       }
     ],
     "connections": {
@@ -595,7 +666,7 @@
         "main": [
           [
             {
-              "node": "Check Media Type",
+              "node": "Filter Private Chat Only",
               "type": "main",
               "index": 0
             }
@@ -697,7 +768,7 @@
         "main": [
           [
             {
-              "node": "Send Client Result & Inline Buttons",
+              "node": "Generate PDF via Gotenberg",
               "type": "main",
               "index": 0
             }
@@ -708,7 +779,7 @@
         "main": [
           [
             {
-              "node": "Notify Managers Group",
+              "node": "Send Client PDF Document",
               "type": "main",
               "index": 0
             }
@@ -767,6 +838,39 @@
           [
             {
               "node": "Call VLM (OpenAI-Compatible)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Filter Private Chat Only": {
+        "main": [
+          [
+            {
+              "node": "Check Media Type",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Generate PDF via Gotenberg": {
+        "main": [
+          [
+            {
+              "node": "Send Client Result & Inline Buttons",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Send Client PDF Document": {
+        "main": [
+          [
+            {
+              "node": "Notify Managers Group",
               "type": "main",
               "index": 0
             }
