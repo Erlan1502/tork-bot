@@ -1,0 +1,96 @@
+/* Tork Mini App Styles */
+:root {
+  --tork-blue: #003865;
+  --tork-cyan: #009FDA;
+  --tork-navy-dark: #002244;
+  --tork-bg-subtle: #F4F6F9;
+  
+  /* Telegram Theme Fallbacks */
+  --tg-theme-bg-color: #F8FAFC;
+  --tg-theme-text-color: #0F172A;
+  --tg-theme-hint-color: #64748B;
+  --tg-theme-link-color: #009FDA;
+  --tg-theme-button-color: #003865;
+  --tg-theme-button-text-color: #FFFFFF;
+  --tg-theme-secondary-bg-color: #FFFFFF;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background-color: var(--tg-theme-bg-color);
+  color: var(--tg-theme-text-color);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+/* Custom scrollbar for horizontal tabs */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Glassmorphism effects */
+.glass-header {
+  background: rgba(0, 56, 101, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.glass-floating {
+  background: rgba(0, 56, 101, 0.96);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 10px 30px -5px rgba(0, 56, 101, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+/* Touch active micro-animations */
+.tap-effect {
+  transition: transform 0.1s ease, opacity 0.1s ease;
+}
+.tap-effect:active {
+  transform: scale(0.96);
+}
+
+/* Card hover & appearance */
+.product-card {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+}
+.product-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px -6px rgba(0, 56, 101, 0.08);
+}
+
+/* Modal slide up animation */
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Pulse badge for preselected product */
+@keyframes highlightPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(0, 159, 218, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(0, 159, 218, 0);
+  }
+}
+
+.highlighted-product {
+  animation: highlightPulse 2s ease-in-out infinite;
+  border-color: var(--tork-cyan) !important;
+}

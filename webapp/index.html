@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Tork Каталог Казахстан | Telegram Mini App</title>
+
+  <!-- Telegram WebApp SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            tork: {
+              DEFAULT: '#003865',
+              navy: '#003865',
+              dark: '#002244',
+              cyan: '#009FDA',
+              light: '#E8F4FD',
+              subtle: '#F4F6F9',
+              accent: '#007AA8'
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="style.css">
+
+  <!-- Vue 3 CDN -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen pb-28">
+
+  <div id="app" v-cloak class="max-w-3xl mx-auto min-h-screen flex flex-col">
+    
+    <!-- HEADER -->
+    <header class="glass-header text-white sticky top-0 z-30 shadow-md">
+      <div class="px-4 pt-3 pb-3">
+        <div class="flex items-center justify-between gap-3 mb-2.5">
+          <!-- Logo & Title -->
+          <div class="flex items-center gap-2.5">
+            <div class="bg-white p-1 rounded-lg shadow-sm flex items-center justify-center">
+              <svg class="h-6 w-auto" viewBox="0 0 120 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="120" height="40" rx="6" fill="#003865"/>
+                <text x="60" y="27" text-anchor="middle" font-family="'Inter', sans-serif" font-weight="900" font-size="22" letter-spacing="2" fill="#FFFFFF">TORK</text>
+                <circle cx="106" cy="14" r="3" fill="#009FDA" />
+              </svg>
+            </div>
+            <div>
+              <h1 class="text-sm font-bold tracking-tight text-white leading-none">Каталог Tork Казахстан</h1>
+              <span class="text-[10px] text-sky-200 font-medium">B2B Коммерческие предложения</span>
+            </div>
+          </div>
+
+          <!-- Quick Cart Button in Header -->
+          <button 
+            v-if="cartTotalQty > 0" 
+            @click="openCart"
+            id="header-cart-btn"
+            class="tap-effect flex items-center gap-1.5 bg-sky-500/20 hover:bg-sky-500/30 text-white text-xs font-semibold px-3 py-1.5 rounded-full border border-sky-400/30 transition">
+            <span>🛒</span>
+            <span class="bg-sky-400 text-slate-900 text-[11px] font-bold px-1.5 py-0.2 rounded-full">{{ cartTotalQty }}</span>
+          </button>
+        </div>
+
+        <!-- Search Input -->
+        <div class="relative">
+          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+          </div>
+          <input 
+            v-model="searchQuery"
+            type="text"
+            id="search-input"
+            placeholder="Поиск по названию или артикулу (SKU)..."
+            class="w-full pl-9 pr-9 py-2 bg-white/10 text-white placeholder-slate-300 text-xs sm:text-sm rounded-xl border border-white/20 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:bg-white/20 transition shadow-inner">
+          <button 
+            v-if="searchQuery" 
+            @click="clearSearch"
+            class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-300 hover:text-white">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- ZONE TABS (Вариант А: 4 зоны) -->
+      <nav v-if="!searchQuery" class="flex border-t border-white/10 overflow-x-auto no-scrollbar bg-tork-dark/70 text-xs font-medium">
+        <button 
+          v-for="zone in zones" 
+          :key="zone.id"
+          :id="'tab-' + zone.id"
+          @click="selectZone(zone.id)"
+          :class="[
+            'tap-effect flex-1 min-w-[85px] py-2.5 px-2 text-center border-b-2 transition-all flex flex-col items-center gap-0.5 whitespace-nowrap',
+            selectedZone === zone.id 
+              ? 'border-sky-400 text-sky-300 font-bold bg-white/5' 
+              : 'border-transparent text-slate-300 hover:text-white'
+          ]">
+          <span class="text-sm leading-none">{{ zone.icon }}</span>
+          <span class="text-[11px] leading-tight">{{ zone.label }}</span>
+        </button>
+      </nav>
+    </header>
+
+    <!-- SUB-TYPE FILTER (Все | Диспенсеры | Расходники) -->
+    <div v-if="!searchQuery" class="px-4 py-2.5 bg-white border-b border-slate-200 sticky top-[108px] z-20 shadow-xs">
+      <div class="flex items-center gap-2">
+        <button 
+          id="filter-all"
+          @click="selectCategory('all')"
+          :class="[
+            'tap-effect text-xs px-3 py-1.5 rounded-lg font-medium transition',
+            selectedCategory === 'all' 
+              ? 'bg-tork text-white shadow-xs' 
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+          ]">
+          Все <span class="opacity-75 text-[10px]">({{ zoneCounts.all }})</span>
+        </button>
+
+        <button 
+          id="filter-dispenser"
+          @click="selectCategory('dispenser')"
+          :class="[
+            'tap-effect text-xs px-3 py-1.5 rounded-lg font-medium transition',
+            selectedCategory === 'dispenser' 
+              ? 'bg-tork text-white shadow-xs' 
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+          ]">
+          Диспенсеры <span class="opacity-75 text-[10px]">({{ zoneCounts.dispenser }})</span>
+        </button>
+
+        <button 
+          id="filter-refill"
+          @click="selectCategory('refill')"
+          :class="[
+            'tap-effect text-xs px-3 py-1.5 rounded-lg font-medium transition',
+            selectedCategory === 'refill' 
+              ? 'bg-tork text-white shadow-xs' 
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+          ]">
+          Расходники <span class="opacity-75 text-[10px]">({{ zoneCounts.refill }})</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- SEARCH STATUS BANNER -->
+    <div v-if="searchQuery" class="px-4 py-2 bg-sky-50 border-b border-sky-100 text-xs text-sky-900 flex items-center justify-between">
+      <span>Найдено по запросу «{{ searchQuery }}»: <strong>{{ filteredProducts.length }}</strong> товаров</span>
+      <button @click="clearSearch" class="text-sky-600 hover:underline font-semibold">Сбросить</button>
+    </div>
+
+    <!-- MAIN PRODUCT CATALOG GRID -->
+    <main class="flex-1 p-3 sm:p-4">
+      <!-- Loading State -->
+      <div v-if="loading" class="flex flex-col items-center justify-center py-20 text-slate-400">
+        <svg class="animate-spin h-8 w-8 text-tork mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+        </svg>
+        <p class="text-xs font-medium">Загрузка каталога Tork...</p>
+      </div>
+
+      <!-- Error State -->
+      <div v-else-if="error" class="p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs text-center my-6">
+        <p class="font-semibold mb-1">Ошибка загрузки</p>
+        <p>{{ error }}</p>
+        <button @click="loadCatalog" class="mt-3 bg-red-600 text-white px-4 py-1.5 rounded-lg text-xs font-semibold">Повторить</button>
+      </div>
+
+      <!-- Empty State -->
+      <div v-else-if="filteredProducts.length === 0" class="text-center py-16 text-slate-400">
+        <div class="text-4xl mb-2">📦</div>
+        <p class="text-sm font-semibold text-slate-600">Товары не найдены</p>
+        <p class="text-xs mt-1">Попробуйте изменить поисковый запрос или выбрать другую категорию</p>
+      </div>
+
+      <!-- Products Grid -->
+      <div v-else class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div 
+          v-for="product in filteredProducts" 
+          :key="product.sku"
+          :id="'product-' + product.sku"
+          :class="[
+            'product-card bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200/80 flex flex-col justify-between shadow-xs relative overflow-hidden',
+            preselectedSku === product.sku ? 'highlighted-product ring-2 ring-sky-400' : ''
+          ]">
+          
+          <!-- Image Section -->
+          <div class="relative w-full aspect-square bg-slate-50 rounded-xl mb-2 flex items-center justify-center p-2 overflow-hidden border border-slate-100">
+            <img 
+              :src="product.image_url" 
+              :alt="product.name"
+              loading="lazy"
+              @error="handleImageError"
+              class="max-h-full max-w-full object-contain transition-transform duration-300 hover:scale-105">
+            
+            <!-- Category Badge (Top Right) -->
+            <span 
+              :class="[
+                'absolute top-1.5 right-1.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-md shadow-2xs',
+                product.category === 'dispenser' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+              ]">
+              {{ product.category === 'dispenser' ? 'Диспенсер' : 'Расходник' }}
+            </span>
+          </div>
+
+          <!-- Product Meta Badges -->
+          <div class="flex flex-wrap items-center gap-1 mb-1.5">
+            <!-- System Code Badge -->
+            <span v-if="product.system_code && product.system_code !== '-'" class="bg-sky-50 text-sky-800 border border-sky-200 text-[10px] font-bold px-1.5 py-0.2 rounded">
+              {{ product.system_code }}
+            </span>
+
+            <!-- Color Badge -->
+            <span v-if="getColorBadge(product.color)" class="inline-flex items-center gap-1 bg-slate-100 text-slate-700 text-[10px] font-medium px-1.5 py-0.2 rounded border border-slate-200">
+              <span :class="['w-2 h-2 rounded-full inline-block', getColorBadge(product.color).dotClass]"></span>
+              {{ getColorBadge(product.color).label }}
+            </span>
+          </div>
+
+          <!-- SKU and Name -->
+          <div class="mb-2 flex-1">
+            <div class="text-[10px] font-bold text-slate-400 font-mono tracking-tight">АРТ. {{ product.sku }}</div>
+            <h2 class="text-xs font-semibold text-slate-900 line-clamp-2 leading-tight mt-0.5" :title="product.name">
+              {{ product.name }}
+            </h2>
+          </div>
+
+          <!-- Price & Action Row -->
+          <div class="pt-2 border-t border-slate-100 flex flex-col gap-1.5">
+            <div class="text-sm sm:text-base font-extrabold text-tork leading-none">
+              {{ formatPrice(product.price) }}
+            </div>
+
+            <!-- Action Button: Add to Cart or Stepper -->
+            <div>
+              <!-- If NOT in cart -->
+              <button 
+                v-if="!getItemQty(product.sku)"
+                :id="'btn-add-' + product.sku"
+                @click="addToCart(product)"
+                class="tap-effect w-full bg-tork hover:bg-tork-dark active:bg-slate-900 text-white font-semibold text-xs py-1.5 px-2 rounded-xl flex items-center justify-center gap-1 shadow-xs transition">
+                <span class="text-sm font-bold leading-none">+</span>
+                <span>В корзину</span>
+              </button>
+
+              <!-- If IN cart: Stepper -->
+              <div v-else class="flex items-center justify-between bg-sky-50 border border-sky-300 rounded-xl p-0.5 text-xs font-bold text-sky-950">
+                <button 
+                  :id="'btn-dec-' + product.sku"
+                  @click="updateQty(product.sku, -1)"
+                  class="tap-effect w-7 h-7 flex items-center justify-center bg-white rounded-lg shadow-2xs text-sky-800 hover:bg-sky-100 active:scale-95 transition">
+                  <span class="text-sm leading-none font-bold">−</span>
+                </button>
+                <span class="px-2 font-extrabold text-xs text-tork">{{ getItemQty(product.sku) }}</span>
+                <button 
+                  :id="'btn-inc-' + product.sku"
+                  @click="updateQty(product.sku, 1)"
+                  class="tap-effect w-7 h-7 flex items-center justify-center bg-tork text-white rounded-lg shadow-2xs hover:bg-tork-dark active:scale-95 transition">
+                  <span class="text-sm leading-none font-bold">+</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- FLOATING BOTTOM CART BAR (Полноширинный синий блок) -->
+    <div 
+      v-if="cartTotalQty > 0 && !isCartOpen" 
+      id="floating-cart-bar"
+      class="fixed bottom-0 inset-x-0 z-40 p-3 bg-gradient-to-t from-slate-900/40 via-slate-900/10 to-transparent pointer-events-none">
+      <div class="max-w-xl mx-auto pointer-events-auto">
+        <button 
+          @click="openCart"
+          id="btn-open-cart-modal"
+          class="tap-effect w-full glass-floating text-white py-3 px-4 rounded-2xl flex items-center justify-between font-semibold shadow-xl active:scale-[0.99] transition">
+          <div class="flex items-center gap-2.5">
+            <div class="bg-white/20 p-1.5 rounded-xl text-base">🛒</div>
+            <div class="text-left">
+              <div class="text-xs text-sky-200 font-medium">Оформить заказ / КП</div>
+              <div class="text-sm sm:text-base font-bold">Корзина ({{ cartTotalQty }}) — {{ formatPrice(cartTotalAmount) }}</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-1 text-xs font-bold bg-white text-tork px-3 py-1.5 rounded-xl shadow-xs">
+            <span>Перейти</span>
+            <span>→</span>
+          </div>
+        </button>
+      </div>
+    </div>
+
+    <!-- CART MODAL / BOTTOM SHEET -->
+    <div 
+      v-if="isCartOpen" 
+      id="cart-modal-backdrop"
+      class="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex flex-col justify-end transition-opacity">
+      
+      <div 
+        id="cart-modal-container"
+        class="animate-slide-up bg-white rounded-t-3xl max-w-xl w-full mx-auto max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
+        
+        <!-- Modal Header -->
+        <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+          <div class="flex items-center gap-2">
+            <span class="text-xl">🛒</span>
+            <div>
+              <h2 class="text-base font-bold text-slate-900 leading-tight">Корзина и реквизиты КП</h2>
+              <p class="text-[11px] text-slate-500">Товаров в заказе: {{ cartTotalQty }} шт.</p>
+            </div>
+          </div>
+          <button 
+            @click="closeCart" 
+            id="btn-close-cart"
+            class="tap-effect w-8 h-8 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-700 flex items-center justify-center font-bold text-sm">
+            ✕
+          </button>
+        </div>
+
+        <!-- Modal Body (Scrollable) -->
+        <div class="flex-1 overflow-y-auto p-4 sm:p-5 space-y-5">
+          
+          <!-- SUCCESS SCREEN (If Order Sent) -->
+          <div v-if="orderSuccess" class="py-6 text-center space-y-4">
+            <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-3xl">
+              ✓
+            </div>
+            <div>
+              <h3 class="text-lg font-bold text-slate-900">Заявка на КП отправлена!</h3>
+              <p class="text-xs text-slate-600 mt-1 max-w-xs mx-auto">
+                Данные переданы менеджеру Tork. Официальное коммерческое предложение в PDF будет сформировано в чате.
+              </p>
+            </div>
+
+            <!-- Browser Debug Info -->
+            <div v-if="submittedOrderData" class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-left">
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-[11px] font-bold text-slate-700">JSON Payload (Telegram.WebApp.sendData):</span>
+                <button 
+                  @click="copyPayload" 
+                  class="text-[10px] text-sky-600 hover:text-sky-800 font-semibold underline">
+                  {{ copiedPayload ? 'Скопировано!' : 'Копировать JSON' }}
+                </button>
+              </div>
+              <pre class="text-[10px] font-mono bg-white p-2 rounded border border-slate-200 overflow-x-auto max-h-40">{{ JSON.stringify(submittedOrderData, null, 2) }}</pre>
+            </div>
+
+            <button 
+              @click="closeCart" 
+              class="w-full bg-tork text-white font-bold py-2.5 rounded-xl text-xs">
+              Вернуться в каталог
+            </button>
+          </div>
+
+          <!-- REGULAR CART CONTENT -->
+          <template v-else>
+            <!-- 1. Cart Items List -->
+            <div>
+              <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2.5">Выбранные товары</h4>
+              
+              <div class="space-y-2">
+                <div 
+                  v-for="item in cartItems" 
+                  :key="item.sku"
+                  class="flex items-center gap-3 p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
+                  
+                  <!-- Thumbnail -->
+                  <div class="w-12 h-12 bg-white rounded-lg p-1 border border-slate-200 shrink-0 flex items-center justify-center">
+                    <img :src="item.image_url" :alt="item.name" @error="handleImageError" class="max-h-full max-w-full object-contain">
+                  </div>
+
+                  <!-- Details -->
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-1.5">
+                      <span class="text-[10px] font-mono font-bold text-slate-400">АРТ. {{ item.sku }}</span>
+                      <span v-if="item.system_code" class="text-[9px] font-bold text-sky-700 bg-sky-100 px-1 rounded">{{ item.system_code }}</span>
+                    </div>
+                    <div class="text-xs font-semibold text-slate-900 truncate leading-snug">{{ item.name }}</div>
+                    <div class="text-[11px] font-bold text-tork mt-0.5">
+                      {{ formatPrice(item.price) }} × {{ item.qty }} = {{ formatPrice(item.price * item.qty) }}
+                    </div>
+                  </div>
+
+                  <!-- Quantity Controls -->
+                  <div class="flex items-center gap-1 shrink-0 bg-white border border-slate-300 rounded-lg p-0.5">
+                    <button 
+                      @click="updateQty(item.sku, -1)" 
+                      class="tap-effect w-6 h-6 flex items-center justify-center text-slate-700 hover:bg-slate-100 rounded text-xs font-bold">
+                      −
+                    </button>
+                    <span class="px-1.5 text-xs font-extrabold text-slate-900">{{ item.qty }}</span>
+                    <button 
+                      @click="updateQty(item.sku, 1)" 
+                      class="tap-effect w-6 h-6 flex items-center justify-center text-slate-700 hover:bg-slate-100 rounded text-xs font-bold">
+                      +
+                    </button>
+                  </div>
+
+                  <!-- Remove item -->
+                  <button 
+                    @click="removeFromCart(item.sku)" 
+                    class="text-slate-400 hover:text-red-600 p-1 shrink-0" 
+                    title="Удалить">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Total Sum Card -->
+              <div class="mt-3 p-3 bg-sky-50 border border-sky-100 rounded-xl flex items-center justify-between">
+                <div>
+                  <span class="text-xs font-medium text-slate-600">Итого к оплате:</span>
+                  <div class="text-[10px] text-slate-500 font-medium">включая НДС 12%</div>
+                </div>
+                <div class="text-right">
+                  <span class="text-base sm:text-lg font-extrabold text-tork">{{ formatPrice(cartTotalAmount) }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 2. B2B Client Credentials Form -->
+            <div class="pt-2 border-t border-slate-200">
+              <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2.5">Реквизиты компании для КП</h4>
+              
+              <div class="space-y-3">
+                <!-- Company Name -->
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 mb-1">
+                    Название компании / ИП <span class="text-red-500">*</span>
+                  </label>
+                  <input 
+                    v-model="form.company_name"
+                    id="input-company-name"
+                    type="text" 
+                    placeholder="ТОО «KazPromService» или ИП «Арман»"
+                    :class="[
+                      'w-full px-3 py-2 text-xs rounded-xl border bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 transition',
+                      formErrors.company_name ? 'border-red-400 focus:ring-red-300' : 'border-slate-300 focus:ring-sky-400'
+                    ]">
+                  <p v-if="formErrors.company_name" class="text-[10px] text-red-500 mt-0.5">{{ formErrors.company_name }}</p>
+                </div>
+
+                <!-- BIN / IIN (Strictly 12 Digits) -->
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 mb-1">
+                    БИН / ИИН (12 цифр) <span class="text-red-500">*</span>
+                  </label>
+                  <input 
+                    :value="form.bin"
+                    @input="onBinInput"
+                    id="input-bin"
+                    type="text" 
+                    inputmode="numeric"
+                    maxlength="12"
+                    placeholder="123456789012"
+                    :class="[
+                      'w-full px-3 py-2 text-xs font-mono rounded-xl border bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 transition',
+                      formErrors.bin ? 'border-red-400 focus:ring-red-300' : 'border-slate-300 focus:ring-sky-400'
+                    ]">
+                  <p v-if="formErrors.bin" class="text-[10px] text-red-500 mt-0.5">{{ formErrors.bin }}</p>
+                  <p v-else class="text-[10px] text-slate-400 mt-0.5">Введено символов: {{ (form.bin || '').length }}/12</p>
+                </div>
+
+                <!-- City Dropdown (Астана, Алматы, Шымкент) -->
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 mb-1">
+                    Город поставки <span class="text-red-500">*</span>
+                  </label>
+                  <select 
+                    v-model="form.city"
+                    id="select-city"
+                    class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-400 transition">
+                    <option v-for="c in cities" :key="c" :value="c">{{ c }}</option>
+                  </select>
+                </div>
+
+                <!-- Contact Name & Phone Grid -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <!-- Contact Name -->
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Контактное лицо</label>
+                    <input 
+                      v-model="form.client_name"
+                      id="input-client-name"
+                      type="text" 
+                      placeholder="Имя Фамилия"
+                      class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-400 transition">
+                  </div>
+
+                  <!-- Phone Number with Mask -->
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">
+                      Телефон <span class="text-red-500">*</span>
+                    </label>
+                    <input 
+                      :value="form.phone"
+                      @input="onPhoneInput"
+                      id="input-phone"
+                      type="tel" 
+                      placeholder="+7 (7XX) XXX-XX-XX"
+                      :class="[
+                        'w-full px-3 py-2 text-xs font-mono rounded-xl border bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 transition',
+                        formErrors.phone ? 'border-red-400 focus:ring-red-300' : 'border-slate-300 focus:ring-sky-400'
+                      ]">
+                    <p v-if="formErrors.phone" class="text-[10px] text-red-500 mt-0.5">{{ formErrors.phone }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Submit Button: Сформировать официальное КП -->
+            <div class="pt-3">
+              <button 
+                @click="submitOrder"
+                id="btn-submit-order"
+                class="tap-effect w-full bg-tork hover:bg-tork-dark active:scale-[0.99] text-white font-bold py-3 px-4 rounded-xl text-sm shadow-md transition flex items-center justify-center gap-2">
+                <span>📄</span>
+                <span>Сформировать официальное КП</span>
+              </button>
+              <p class="text-[10px] text-slate-400 text-center mt-2">
+                Нажатием кнопки вы отправляете заявку на расчет через Telegram WebApp
+              </p>
+            </div>
+          </template>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Main Application Script -->
+  <script src="app.js"></script>
+</body>
+</html>

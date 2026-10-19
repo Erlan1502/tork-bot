@@ -156,9 +156,33 @@
                         "operation": "equals",
                         "type": "string"
                       },
+                      "rightValue": "web_app_order",
+                      "id": "rule-web-app-order",
+                      "leftValue": "={{ ($json.message?.web_app_data?.data || $('Telegram Trigger').first()?.json?.message?.web_app_data?.data || $('Telegram Trigger').item?.json?.message?.web_app_data?.data) ? 'web_app_order' : (($json.callback_query || $('Telegram Trigger').first()?.json?.callback_query || $('Telegram Trigger').item?.json?.callback_query) ? 'callback' : ((($json.message?.photo || $('Telegram Trigger').first()?.json?.message?.photo) || (($json.message?.document || $('Telegram Trigger').first()?.json?.message?.document) && (($json.message?.document?.mime_type || $('Telegram Trigger').first()?.json?.message?.document?.mime_type) || '').startsWith('image/'))) ? 'photo' : 'other')) }}"
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "web_app_order"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "operator": {
+                        "operation": "equals",
+                        "type": "string"
+                      },
                       "rightValue": "callback",
                       "id": "rule-callback",
-                      "leftValue": "={{ $('Telegram Trigger').item.json.callback_query ? 'callback' : (($('Telegram Trigger').item.json.message?.photo || ($('Telegram Trigger').item.json.message?.document && ($('Telegram Trigger').item.json.message.document.mime_type || '').startsWith('image/'))) ? 'photo' : 'other') }}"
+                      "leftValue": "={{ ($json.message?.web_app_data?.data || $('Telegram Trigger').first()?.json?.message?.web_app_data?.data || $('Telegram Trigger').item?.json?.message?.web_app_data?.data) ? 'web_app_order' : (($json.callback_query || $('Telegram Trigger').first()?.json?.callback_query || $('Telegram Trigger').item?.json?.callback_query) ? 'callback' : ((($json.message?.photo || $('Telegram Trigger').first()?.json?.message?.photo) || (($json.message?.document || $('Telegram Trigger').first()?.json?.message?.document) && (($json.message?.document?.mime_type || $('Telegram Trigger').first()?.json?.message?.document?.mime_type) || '').startsWith('image/'))) ? 'photo' : 'other')) }}"
                     }
                   ],
                   "combinator": "and"
@@ -182,7 +206,7 @@
                       },
                       "rightValue": "photo",
                       "id": "rule-photo",
-                      "leftValue": "={{ $('Telegram Trigger').item.json.callback_query ? 'callback' : (($('Telegram Trigger').item.json.message?.photo || ($('Telegram Trigger').item.json.message?.document && ($('Telegram Trigger').item.json.message.document.mime_type || '').startsWith('image/'))) ? 'photo' : 'other') }}"
+                      "leftValue": "={{ ($json.message?.web_app_data?.data || $('Telegram Trigger').first()?.json?.message?.web_app_data?.data || $('Telegram Trigger').item?.json?.message?.web_app_data?.data) ? 'web_app_order' : (($json.callback_query || $('Telegram Trigger').first()?.json?.callback_query || $('Telegram Trigger').item?.json?.callback_query) ? 'callback' : ((($json.message?.photo || $('Telegram Trigger').first()?.json?.message?.photo) || (($json.message?.document || $('Telegram Trigger').first()?.json?.message?.document) && (($json.message?.document?.mime_type || $('Telegram Trigger').first()?.json?.message?.document?.mime_type) || '').startsWith('image/'))) ? 'photo' : 'other')) }}"
                     }
                   ],
                   "combinator": "and"
@@ -209,7 +233,7 @@
       {
         "parameters": {
           "operation": "executeQuery",
-          "query": "UPDATE user_sessions_leads SET business_segment = '{{ ($('Telegram Trigger').item.json.callback_query.data || '').replace(/^seg_/, '') }}', current_step = 'AWAITING_PHOTO', updated_at = NOW() WHERE tg_user_id = {{ $('Telegram Trigger').item.json.callback_query.from.id }} RETURNING *;",
+          "query": "UPDATE user_sessions_leads SET current_step = 'AWAITING_PHOTO', business_segment = COALESCE(NULLIF(regexp_replace('{{ $('Telegram Trigger').item.json.callback_query.data || '' }}', '^seg_', ''), 'action_start_photo_fitting'), business_segment, 'HoReCa'), updated_at = NOW() WHERE tg_user_id = {{ $('Telegram Trigger').item.json.callback_query.from.id }} RETURNING *;",
           "options": {}
         },
         "id": "b2d4709b-0eef-43d0-91ec-5c0e6a21f1fd",
@@ -230,7 +254,7 @@
       {
         "parameters": {
           "chatId": "={{ $('Telegram Trigger').item.json.callback_query.message ? $('Telegram Trigger').item.json.callback_query.message.chat.id : $('Telegram Trigger').item.json.callback_query.from.id }}",
-          "text": "✅ Тип объекта сохранен!\n\nШаг 2 из 2: Отправьте обычную фотографию зоны раковины и стены санузла (с расстояния 1.5–2 метра). Я подберу подходящую систему Tork и сделаю примерку.",
+          "text": "📷 Пожалуйста, отправьте фотографию стены и зоны раковины санузла (с расстояния 1.5–2 метра). Нейросеть проанализирует интерьер и примерит подходящий диспенсер Tork.",
           "additionalFields": {
             "appendAttribution": false
           }
@@ -254,7 +278,7 @@
       {
         "parameters": {
           "chatId": "={{ $('Telegram Trigger').item.json.message ? $('Telegram Trigger').item.json.message.chat.id : $('Telegram Trigger').item.json.callback_query.message.chat.id }}",
-          "text": "👋 Добро пожаловать в Tork AI Казахстан!\n\nЯ помогу подобрать оптимальный комплект диспенсеров и расходных материалов Tork (Essity), примерить их на фото вашего санузла и рассчитать точную стоимость.\n\nШаг 1 из 2. Выберите тип вашего объекта:",
+          "text": "👋 Добро пожаловать в Tork AI Казахстан!\n\nОфициальный сервис подбора профессионального гигиенического оборудования и расходных материалов Tork (Essity).\n\nВыберите удобный способ работы:\n• Откройте интерактивный каталог, чтобы самостоятельно собрать спецификацию и получить официальное КП с ценами в KZT.\n• Или воспользуйтесь AI-примеркой диспенсеров по фотографии вашего санузла.",
           "replyMarkup": "inlineKeyboard",
           "inlineKeyboard": {
             "rows": [
@@ -262,15 +286,11 @@
                 "row": {
                   "buttons": [
                     {
-                      "text": "🍽️ Кафе / Ресторан",
+                      "text": "📝 Открыть каталог Tork",
                       "additionalFields": {
-                        "callback_data": "seg_HoReCa"
-                      }
-                    },
-                    {
-                      "text": "🏢 Офис / БЦ",
-                      "additionalFields": {
-                        "callback_data": "seg_Office"
+                        "web_app": {
+                          "url": "https://romaine-towery-audrey.ngrok-free.dev/app/index.html"
+                        }
                       }
                     }
                   ]
@@ -280,15 +300,9 @@
                 "row": {
                   "buttons": [
                     {
-                      "text": "🏥 Клиника / Мед.",
+                      "text": "📸 Подобрать по фото санузла",
                       "additionalFields": {
-                        "callback_data": "seg_Medical"
-                      }
-                    },
-                    {
-                      "text": "🏭 Производство",
-                      "additionalFields": {
-                        "callback_data": "seg_Industrial"
+                        "callback_data": "action_start_photo_fitting"
                       }
                     }
                   ]
@@ -301,7 +315,7 @@
           }
         },
         "id": "809a43fb-8680-463c-8281-5fad436afffd",
-        "name": "Send Segment Keyboard",
+        "name": "Send Welcome Onboarding",
         "type": "n8n-nodes-base.telegram",
         "position": [
           0,
@@ -531,9 +545,11 @@
                 "row": {
                   "buttons": [
                     {
-                      "text": "✅ Оформить тест-драйв в Казахстане",
+                      "text": "🛒 Оформить комплект в каталоге",
                       "additionalFields": {
-                        "callback_data": "action_lead_testdrive"
+                        "web_app": {
+                          "url": "=https://romaine-towery-audrey.ngrok-free.dev/app/index.html?preselect_sku={{ $json.dispenser_sku }}"
+                        }
                       }
                     }
                   ]
@@ -543,7 +559,7 @@
                 "row": {
                   "buttons": [
                     {
-                      "text": "🔄 Примерка в другом цвете",
+                      "text": "🔄 Примерить другой цвет",
                       "additionalFields": {
                         "callback_data": "action_change_color"
                       }
@@ -657,6 +673,148 @@
           "telegramApi": {
             "id": "ildUvXJDz5GOalvb",
             "name": "Telegram account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "const triggerJson = $('Telegram Trigger').first()?.json || {};\nconst triggerData = triggerJson.message?.web_app_data?.data || $input.first()?.json?.message?.web_app_data?.data || $input.first()?.json?.web_app_data?.data;\nlet rawData = {};\ntry {\n  rawData = typeof triggerData === 'string' ? JSON.parse(triggerData) : (triggerData || {});\n} catch (e) {\n  rawData = {};\n}\n\nif (!rawData.items && $input.first()?.json?.items) {\n  rawData = $input.first().json;\n}\n\n// Сгенерировать номер и дату КП\nconst kp_number = 'TKZ-' + Date.now().toString().slice(-6);\nconst kp_date = new Date().toLocaleDateString('ru-RU');\n\n// Определить реквизиты регионального дистрибьютора по полю city\nconst cityNorm = (rawData.city || '').trim().toLowerCase();\nlet distributor = {\n  distributor_id: 1,\n  distributor_name: 'ТОО \"Tork Kazakhstan Distribution Astana\"',\n  distributor_bin: '210540032111',\n  distributor_city: 'г. Астана',\n  distributor_address: 'г. Астана, район Есиль, ул. Достык, 18, БЦ \"Москва\", офис 704',\n  distributor_phone: '+7 (7172) 79-55-01',\n  distributor_email: 'astana@tork-distrib.kz'\n};\n\nif (cityNorm.includes('алмат') || cityNorm === 'almaty') {\n  distributor = {\n    distributor_id: 2,\n    distributor_name: 'ТОО \"Tork Distribution Almaty\"',\n    distributor_bin: '190340019882',\n    distributor_city: 'г. Алматы',\n    distributor_address: 'г. Алматы, пр. Аль-Фараби, 77/7, БЦ \"Esentai Tower\", блок 2',\n    distributor_phone: '+7 (727) 355-88-22',\n    distributor_email: 'almaty@tork-distrib.kz'\n  };\n} else if (cityNorm.includes('шымкент') || cityNorm === 'shymkent') {\n  distributor = {\n    distributor_id: 3,\n    distributor_name: 'ТОО \"Tork South Industrial KZ\"',\n    distributor_bin: '220140045671',\n    distributor_city: 'г. Шымкент',\n    distributor_address: 'г. Шымкент, Абайский р-н, ул. Байтерекова, 25, БЦ \"Орда\"',\n    distributor_phone: '+7 (7252) 99-44-11',\n    distributor_email: 'shymkent@tork-distrib.kz'\n  };\n}\n\nconst items = Array.isArray(rawData.items) ? rawData.items : [];\nconst itemsSummary = items.map((it, idx) => \n  `${idx + 1}. [${it.sku}] ${it.name} — ${it.qty} шт. x ${Number(it.price || 0).toLocaleString('ru-RU')} ₸ = ${Number(it.line_total || (it.price * it.qty) || 0).toLocaleString('ru-RU')} ₸`\n).join('\\n');\n\nconst totalAmount = Number(rawData.total_amount || items.reduce((s, i) => s + (Number(i.line_total) || (Number(i.price) * Number(i.qty)) || 0), 0));\nconst totalAmountFormatted = totalAmount.toLocaleString('ru-RU');\n\nconst tgUser = triggerJson.message?.from || {};\n\nreturn [{\n  json: {\n    event: rawData.event || 'web_app_order',\n    company_name: rawData.company_name || 'ТОО Рассвет',\n    bin: rawData.bin || '',\n    city: rawData.city || 'Астана',\n    client_name: rawData.client_name || '',\n    phone: rawData.phone || '',\n    items: items,\n    total_amount: totalAmount,\n    total_amount_formatted: totalAmountFormatted,\n    items_summary: itemsSummary,\n    kp_number: kp_number,\n    kp_date: kp_date,\n    ...distributor,\n    tg_user_id: tgUser.id || 0,\n    tg_username: tgUser.username || ''\n  }\n}];"
+        },
+        "id": "parse-webapp-order",
+        "name": "Parse WebApp Order & Match Distributor",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          0,
+          640
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "const fs = require('fs');\n\nconst rawData = $('Parse WebApp Order & Match Distributor').first()?.json || $input.first().json;\nconst items = Array.isArray(rawData.items) ? rawData.items : [];\n\nlet rowsHtml = '';\nitems.forEach((item, idx) => {\n  const sku = String(item.sku).trim();\n  const imgUrl = `http://cdn/images/${sku}.png`;\n  const imgTag = `<img src=\"${imgUrl}\" width=\"34\" height=\"34\" style=\"object-fit:contain; vertical-align:middle; margin-right:8px; border-radius:3px; border:1px solid #E2E8F0; background:#fff;\" />`;\n  rowsHtml += `\n    <tr>\n      <td class=\"text-center\">${idx + 1}</td>\n      <td><strong>${sku}</strong></td>\n      <td><div style=\"display:flex; align-items:center;\">${imgTag}<span>${item.name}</span></div></td>\n      <td class=\"text-center\"><span class=\"badge\">${item.system_code || '—'}</span></td>\n      <td class=\"text-center\">${item.qty}</td>\n      <td class=\"text-right\">${Number(item.price).toLocaleString('ru-RU')} ₸</td>\n      <td class=\"text-right\"><strong>${Number(item.line_total).toLocaleString('ru-RU')} ₸</strong></td>\n    </tr>\n  `;\n});\n\nconst templatePath = '/data/templates/kp_template.html';\nlet htmlContent = '';\ntry {\n  htmlContent = fs.readFileSync(templatePath, 'utf8');\n} catch (e) {\n  htmlContent = '<html><body><h1>Коммерческое предложение Tork</h1></body></html>';\n}\n\nconst clientNameFormatted = `${rawData.company_name} (контакт: ${rawData.client_name || 'Представитель'})`;\nconst trafficFormatted = `${items.length} наим.`;\nconst renderedImageDataUri = 'data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"240\" height=\"160\" viewBox=\"0 0 240 160\"><rect width=\"240\" height=\"160\" fill=\"%23003865\"/><text x=\"50%\" y=\"45%\" dominant-baseline=\"middle\" text-anchor=\"middle\" fill=\"%23ffffff\" font-size=\"24\" font-weight=\"bold\" font-family=\"sans-serif\">TORK</text><text x=\"50%\" y=\"65%\" dominant-baseline=\"middle\" text-anchor=\"middle\" fill=\"%23009FDA\" font-size=\"11\" font-family=\"sans-serif\">Официальное КП</text></svg>';\nconst recommendedColorRu = 'Стандартная комплектация';\nconst placementInstructionRu = 'Комплектация подобрана согласно спецификации заказчика в каталоге Tork.';\nconst totalAmountFormatted = Number(rawData.total_amount).toLocaleString('ru-RU');\n\nconst templateReplacements = {\n  distributor_name: rawData.distributor_name,\n  distributor_bin: rawData.distributor_bin,\n  distributor_city: rawData.distributor_city,\n  distributor_address: rawData.distributor_address,\n  distributor_phone: rawData.distributor_phone,\n  distributor_email: rawData.distributor_email,\n  kp_number: rawData.kp_number,\n  kp_date: rawData.kp_date,\n  client_name: clientNameFormatted,\n  business_segment: rawData.city,\n  daily_traffic: trafficFormatted,\n  rendered_image_data_uri: renderedImageDataUri,\n  recommended_color_ru: recommendedColorRu,\n  placement_instruction_ru: placementInstructionRu,\n  table_rows_html: rowsHtml,\n  total_amount_formatted: totalAmountFormatted\n};\n\nlet renderedHtml = htmlContent;\nfor (const [key, val] of Object.entries(templateReplacements)) {\n  const reg = new RegExp('\\\\{\\\\{\\\\s*' + key + '\\\\s*\\\\}\\\\}', 'g');\n  renderedHtml = renderedHtml.replace(reg, String(val ?? ''));\n}\n\nconst htmlBuffer = Buffer.from(renderedHtml, 'utf-8');\n\nreturn [{\n  json: {\n    ...rawData,\n    total_amount_formatted: totalAmountFormatted,\n    items_summary: rawData.items_summary,\n    table_rows_html: rowsHtml\n  },\n  binary: {\n    files: {\n      data: htmlBuffer.toString('base64'),\n      mimeType: 'text/html',\n      fileName: 'index.html'\n    }\n  }\n}];"
+        },
+        "id": "prepare-gotenberg-payload",
+        "name": "Prepare Gotenberg Payload",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          224,
+          640
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "http://gotenberg:3000/forms/chromium/convert/html",
+          "sendBody": true,
+          "contentType": "multipart-form-data",
+          "bodyParameters": {
+            "parameters": [
+              {
+                "parameterType": "formBinaryData",
+                "name": "files",
+                "inputDataFieldName": "files"
+              }
+            ]
+          },
+          "options": {
+            "response": {
+              "response": {
+                "responseFormat": "file",
+                "outputPropertyName": "pdf"
+              }
+            }
+          }
+        },
+        "onError": "continueRegularOutput",
+        "id": "generate-pdf-gotenberg-order",
+        "name": "Generate PDF via Gotenberg (Order)",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          448,
+          640
+        ]
+      },
+      {
+        "parameters": {
+          "resource": "message",
+          "operation": "sendDocument",
+          "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+          "binaryData": true,
+          "binaryPropertyName": "pdf",
+          "caption": "={{ '✅ Ваш заказ успешно принят!\\n\\n📄 Официальное коммерческое предложение № ' + ($json.kp_number || $('Parse WebApp Order & Match Distributor').first().json.kp_number) + ' сформировано и прикреплено к этому сообщению.\\n\\nНаш региональный менеджер свяжется с вами для уточнения деталей поставки.' }}",
+          "additionalFields": {
+            "caption": "={{ '✅ Ваш заказ успешно принят!\\n\\n📄 Официальное коммерческое предложение № ' + ($json.kp_number || $('Parse WebApp Order & Match Distributor').first().json.kp_number) + ' сформировано и прикреплено к этому сообщению.\\n\\nНаш региональный менеджер свяжется с вами для уточнения деталей поставки.' }}",
+            "fileName": "KP_Tork.pdf",
+            "appendAttribution": false
+          }
+        },
+        "onError": "continueRegularOutput",
+        "id": "send-pdf-to-client",
+        "name": "Send PDF to Client",
+        "type": "n8n-nodes-base.telegram",
+        "typeVersion": 1.2,
+        "position": [
+          672,
+          540
+        ],
+        "credentials": {
+          "telegramApi": {
+            "id": "ildUvXJDz5GOalvb",
+            "name": "Telegram account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "resource": "message",
+          "operation": "sendDocument",
+          "chatId": "={{ $env.MANAGER_CHAT_ID }}",
+          "binaryData": true,
+          "binaryPropertyName": "pdf",
+          "caption": "={{ '🚨 Новая заявка из каталога Tork (Казахстан)\\n\\n🏢 Компания: ' + ($json.company_name || $('Parse WebApp Order & Match Distributor').first().json.company_name) + '\\n🔢 БИН/ИИН: ' + ($json.bin || $('Parse WebApp Order & Match Distributor').first().json.bin) + '\\n📍 Город: ' + ($json.city || $('Parse WebApp Order & Match Distributor').first().json.city) + '\\n👤 Контакт: ' + ($json.client_name || $('Parse WebApp Order & Match Distributor').first().json.client_name) + ' (' + ($json.phone || $('Parse WebApp Order & Match Distributor').first().json.phone) + ')\\n💬 Telegram: @' + ($('Telegram Trigger').first().json.message?.from?.username || $('Telegram Trigger').item.json.message.from.username || 'нет') + '\\n\\n📦 Состав заказа:\\n' + ($json.items_summary || $('Parse WebApp Order & Match Distributor').first().json.items_summary) + '\\n\\n💰 Итого: ' + ($json.total_amount_formatted || $('Parse WebApp Order & Match Distributor').first().json.total_amount_formatted) + ' ₸\\n📄 Номер КП: ' + ($json.kp_number || $('Parse WebApp Order & Match Distributor').first().json.kp_number) }}",
+          "additionalFields": {
+            "caption": "={{ '🚨 Новая заявка из каталога Tork (Казахстан)\\n\\n🏢 Компания: ' + ($json.company_name || $('Parse WebApp Order & Match Distributor').first().json.company_name) + '\\n🔢 БИН/ИИН: ' + ($json.bin || $('Parse WebApp Order & Match Distributor').first().json.bin) + '\\n📍 Город: ' + ($json.city || $('Parse WebApp Order & Match Distributor').first().json.city) + '\\n👤 Контакт: ' + ($json.client_name || $('Parse WebApp Order & Match Distributor').first().json.client_name) + ' (' + ($json.phone || $('Parse WebApp Order & Match Distributor').first().json.phone) + ')\\n💬 Telegram: @' + ($('Telegram Trigger').first().json.message?.from?.username || $('Telegram Trigger').item.json.message.from.username || 'нет') + '\\n\\n📦 Состав заказа:\\n' + ($json.items_summary || $('Parse WebApp Order & Match Distributor').first().json.items_summary) + '\\n\\n💰 Итого: ' + ($json.total_amount_formatted || $('Parse WebApp Order & Match Distributor').first().json.total_amount_formatted) + ' ₸\\n📄 Номер КП: ' + ($json.kp_number || $('Parse WebApp Order & Match Distributor').first().json.kp_number) }}",
+            "fileName": "KP_Tork.pdf",
+            "appendAttribution": false
+          }
+        },
+        "onError": "continueRegularOutput",
+        "id": "notify-managers-order",
+        "name": "Notify Managers Group (Order)",
+        "type": "n8n-nodes-base.telegram",
+        "typeVersion": 1.2,
+        "position": [
+          672,
+          740
+        ],
+        "credentials": {
+          "telegramApi": {
+            "id": "ildUvXJDz5GOalvb",
+            "name": "Telegram account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "UPDATE user_sessions_leads SET company_name = '{{ ($('Parse WebApp Order & Match Distributor').first().json.company_name || '').replace(/'/g, \"''\") }}', phone = '{{ ($('Parse WebApp Order & Match Distributor').first().json.phone || '').replace(/'/g, \"''\") }}', current_step = 'ORDER_COMPLETED', selected_bundle = '{{ JSON.stringify($('Parse WebApp Order & Match Distributor').first().json.items || []).replace(/'/g, \"''\") }}'::jsonb, distributor_id = {{ $('Parse WebApp Order & Match Distributor').first().json.distributor_id || 1 }}, updated_at = NOW() WHERE tg_user_id = {{ $('Telegram Trigger').first().json.message?.from?.id || $('Parse WebApp Order & Match Distributor').first().json.tg_user_id || 0 }};",
+          "options": {}
+        },
+        "onError": "continueRegularOutput",
+        "id": "update-order-session",
+        "name": "Update Order Session",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.4,
+        "position": [
+          896,
+          740
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "ssRaEX0w25vYf2wI",
+            "name": "Postgres account"
           }
         }
       }
@@ -790,6 +948,13 @@
         "main": [
           [
             {
+              "node": "Parse WebApp Order & Match Distributor",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
               "node": "Update Session Segment",
               "type": "main",
               "index": 0
@@ -804,7 +969,7 @@
           ],
           [
             {
-              "node": "Send Segment Keyboard",
+              "node": "Send Welcome Onboarding",
               "type": "main",
               "index": 0
             }
@@ -871,6 +1036,55 @@
           [
             {
               "node": "Notify Managers Group",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Parse WebApp Order & Match Distributor": {
+        "main": [
+          [
+            {
+              "node": "Prepare Gotenberg Payload",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Prepare Gotenberg Payload": {
+        "main": [
+          [
+            {
+              "node": "Generate PDF via Gotenberg (Order)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Generate PDF via Gotenberg (Order)": {
+        "main": [
+          [
+            {
+              "node": "Send PDF to Client",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Notify Managers Group (Order)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Notify Managers Group (Order)": {
+        "main": [
+          [
+            {
+              "node": "Update Order Session",
               "type": "main",
               "index": 0
             }
