@@ -82,6 +82,7 @@ def main():
         current_price_kzt,
         COALESCE(description, '') as description
     FROM v_products_active
+    WHERE COALESCE(is_active_in_catalog, true) = true
     ORDER BY sku ASC;
     """
     cur.execute(query)

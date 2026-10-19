@@ -1,0 +1,131 @@
+/* Tork B2B Admin Styles */
+:root {
+  --tork-navy: #003865;
+  --tork-dark: #002244;
+  --tork-cyan: #009FDA;
+  --tork-light: #E8F4FD;
+  --tork-accent: #007AA8;
+}
+
+[v-cloak] {
+  display: none !important;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Table animations */
+.table-row-hover:hover {
+  background-color: #f8fafc;
+  transition: background-color 0.15s ease-in-out;
+}
+
+/* Badge pulse animation for live items */
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+.pulse-subtle {
+  animation: pulse-subtle 2s infinite ease-in-out;
+}
+
+/* SLA breach pulsating badge */
+@keyframes sla-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.4);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.02);
+    box-shadow: 0 0 0 4px rgba(225, 29, 72, 0);
+  }
+}
+.animate-sla-pulse {
+  animation: sla-pulse 1.8s infinite ease-in-out;
+}
+
+/* Modern iOS Switch Toggle */
+.tork-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+}
+.tork-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.tork-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: #e2e8f0;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 24px;
+  border: 1px solid #cbd5e1;
+}
+.tork-slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 2px;
+  bottom: 2px;
+  background-color: white;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+input:checked + .tork-slider {
+  background-color: #003865;
+  border-color: #003865;
+}
+input:checked + .tork-slider:before {
+  transform: translateX(20px);
+}
+input:disabled + .tork-slider {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Modal and Drawer Transitions */
+.slide-drawer-enter-active,
+.slide-drawer-leave-active {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.slide-drawer-enter-from,
+.slide-drawer-leave-to {
+  transform: translateX(100%);
+  opacity: 0;
+}
+
+/* Toast Transitions */
+.toast-enter-active,
+.toast-leave-active {
+  transition: all 0.25s ease-out;
+}
+.toast-enter-from {
+  transform: translateY(1rem);
+  opacity: 0;
+}
+.toast-leave-to {
+  transform: translateY(-0.5rem);
+  opacity: 0;
+}

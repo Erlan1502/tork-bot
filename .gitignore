@@ -2,3 +2,5 @@
 .env
 *.xlsx
 *.xls
+*.pdf
+__pycache__/

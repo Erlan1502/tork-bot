@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Коммерческое предложение Tork</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 10mm 12mm 12mm 12mm;
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      color: #1a202c;
+      font-size: 11px;
+      line-height: 1.4;
+      background: #ffffff;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 3px solid #003865;
+      padding-bottom: 12px;
+      margin-bottom: 14px;
+    }
+    .brand-block {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-logo {
+      background: #003865;
+      color: #ffffff;
+      font-weight: 900;
+      font-size: 24px;
+      letter-spacing: 2px;
+      padding: 6px 14px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      display: inline-block;
+    }
+    .brand-sub {
+      font-size: 11px;
+      color: #58595B;
+      font-weight: 500;
+    }
+    .brand-sub span {
+      color: #009FDA;
+      font-weight: 700;
+    }
+    .distributor-info {
+      text-align: right;
+      font-size: 10px;
+      color: #4a5568;
+      line-height: 1.45;
+    }
+    .distributor-name {
+      font-size: 12px;
+      font-weight: 700;
+      color: #003865;
+    }
+    .doc-title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 12px;
+    }
+    .doc-title {
+      font-size: 18px;
+      font-weight: 800;
+      color: #003865;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .doc-meta {
+      font-size: 11px;
+      color: #4a5568;
+    }
+    .client-card {
+      background: #F4F7FA;
+      border-left: 4px solid #009FDA;
+      padding: 10px 14px;
+      border-radius: 0 4px 4px 0;
+      display: grid;
+      grid-template-columns: 1.4fr 1fr 1fr 1.1fr;
+      gap: 10px;
+      margin-bottom: 16px;
+      font-size: 10.5px;
+    }
+    .client-card div strong {
+      color: #003865;
+      display: inline-block;
+      margin-bottom: 3px;
+    }
+    .section-heading {
+      font-size: 12px;
+      font-weight: 700;
+      color: #003865;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .section-heading::before {
+      content: "";
+      display: inline-block;
+      width: 4px;
+      height: 12px;
+      background: #009FDA;
+      border-radius: 2px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 9.5px;
+      font-weight: 600;
+      background: #EBF8FF;
+      color: #007799;
+    }
+    table.price-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 14px;
+      font-size: 10px;
+    }
+    table.price-table th {
+      background: #003865;
+      color: #ffffff;
+      font-weight: 600;
+      padding: 7px 8px;
+      text-align: left;
+    }
+    table.price-table td {
+      padding: 6px 8px;
+      border-bottom: 1px solid #E2E8F0;
+      vertical-align: middle;
+    }
+    table.price-table tr:nth-child(even) td {
+      background: #F8FAFC;
+    }
+    .text-center { text-align: center; }
+    .text-right { text-align: right; }
+    .total-block {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #003865;
+      color: #ffffff;
+      padding: 10px 16px;
+      border-radius: 4px;
+      margin-bottom: 14px;
+    }
+    .total-label {
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .total-amount {
+      font-size: 18px;
+      font-weight: 800;
+      color: #38BDF8;
+    }
+    .test-drive-banner {
+      border: 1.5px dashed #009FDA;
+      background: #F0F9FF;
+      padding: 9px 12px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .test-drive-icon {
+      font-size: 20px;
+      line-height: 1;
+    }
+    .test-drive-text strong {
+      color: #003865;
+      font-size: 11px;
+    }
+    .test-drive-text p {
+      margin: 2px 0 0 0;
+      color: #334155;
+      font-size: 9.5px;
+    }
+    .footer {
+      border-top: 1px solid #E2E8F0;
+      padding-top: 8px;
+      display: flex;
+      justify-content: space-between;
+      color: #64748B;
+      font-size: 9px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="brand-block">
+      <div class="brand-logo">TORK</div>
+      <div class="brand-sub">
+        Профессиональные гигиенические решения<br>
+        <span>Essity Professional Hygiene</span>
+      </div>
+    </div>
+    <div class="distributor-info">
+      <div class="distributor-name">{{ distributor_name }}</div>
+      <div>БИН: {{ distributor_bin }} | {{ distributor_city }}, Казахстан</div>
+      <div>{{ distributor_address }}</div>
+      <div>Тел: {{ distributor_phone }} | Email: {{ distributor_email }}</div>
+    </div>
+  </div>
+
+  <div class="doc-title-row">
+    <div class="doc-title">Коммерческое предложение</div>
+    <div class="doc-meta">
+      <strong>№ КП:</strong> {{ kp_number }} &nbsp;|&nbsp; <strong>Дата:</strong> {{ kp_date }} &nbsp;|&nbsp; <strong>Валюта:</strong> KZT (₸)
+    </div>
+  </div>
+
+  <div class="client-card">
+    <div><strong>Клиент / Компания:</strong><br>{{ client_name }}</div>
+    <div><strong>БИН / ИИН:</strong><br>{{ bin }}</div>
+    <div><strong>Город поставки:</strong><br>{{ city }}</div>
+    <div><strong>Контактный телефон:</strong><br>{{ phone }}</div>
+  </div>
+
+  <div class="section-heading">Спецификация заказанной продукции и расчет стоимости</div>
+  <table class="price-table">
+    <thead>
+      <tr>
+        <th style="width: 25px;" class="text-center">№</th>
+        <th style="width: 65px;">Артикул</th>
+        <th>Наименование и описание</th>
+        <th style="width: 55px;" class="text-center">Система</th>
+        <th style="width: 50px;" class="text-center">Кол-во</th>
+        <th style="width: 75px;" class="text-right">Цена (₸)</th>
+        <th style="width: 85px;" class="text-right">Сумма (₸)</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{ table_rows_html }}
+    </tbody>
+  </table>
+
+  <div class="total-block">
+    <div class="total-label">ИТОГО К ОПЛАТЕ (с учетом НДС 12%):</div>
+    <div class="total-amount">{{ total_amount_formatted }} ₸</div>
+  </div>
+
+  <div class="test-drive-banner">
+    <div class="test-drive-icon">🎁</div>
+    <div class="test-drive-text">
+      <strong>Программа «Тест-драйв Tork» (Бесплатно на 14–28 дней):</strong>
+      <p>Оцените надежность и сокращение расхода полотенец до 37% на вашем объекте. Мы бесплатно предоставим диспенсеры и тестовый запас расходных материалов без обязательств выкупа.</p>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div>Предложение действительно в течение 14 календарных дней. Цены включают НДС 12%. Поставка со склада в Казахстане.</div>
+    <div>Tork® — зарегистрированная торговая марка компании Essity.</div>
+  </div>
+
+</body>
+</html>

@@ -33,13 +33,40 @@ services:
     networks:
       - tork_net
 
+  dashboard_api:
+    build:
+      context: ./dashboard-api
+      dockerfile: Dockerfile
+    container_name: tork_dashboard_api
+    restart: unless-stopped
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${POSTGRES_DB:-tork_bot_db}
+      - POSTGRES_USER=${POSTGRES_USER:-tork_admin}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-supersecret}
+      - JWT_SECRET=${JWT_SECRET:-tork-b2b-dashboard-secret-jwt-key-2026}
+      - GOTENBERG_URL=http://gotenberg:3000
+    volumes:
+      - ./templates:/app/templates:ro
+      - ./dashboard-api/app:/app/app
+      - ./webapp:/app/webapp
+    networks:
+      - tork_net
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   cdn:
     image: nginx:alpine
     container_name: tork_cdn
     restart: unless-stopped
+    depends_on:
+      - dashboard_api
     volumes:
       - ./assets/images:/usr/share/nginx/html/images:ro
       - ./webapp:/usr/share/nginx/html/app:ro
+      - ./admin:/usr/share/nginx/html/admin:ro
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
     ports:
       - '8088:80'
@@ -71,6 +98,7 @@ services:
       - N8N_PORT=5678
       - N8N_PROTOCOL=${N8N_PROTOCOL:-http}
       - WEBHOOK_URL=${WEBHOOK_URL}
+      - N8N_PROXY_HOPS=1
       - N8N_DEFAULT_BINARY_DATA_MODE=default
       - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
       - NODE_FUNCTION_ALLOW_BUILTIN=fs,path

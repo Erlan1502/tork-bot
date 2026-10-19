@@ -15,6 +15,7 @@ createApp({
       isCartOpen: false,
       preselectedSku: null,
       orderSuccess: false,
+      isSubmitting: false,
       submittedOrderData: null,
       copiedPayload: false,
       form: {
@@ -288,7 +289,7 @@ createApp({
       return Object.keys(errors).length === 0;
     },
 
-    submitOrder() {
+    async submitOrder() {
       if (this.cartItems.length === 0) {
         alert('Корзина пуста. Добавьте товары из каталога.');
         return;
@@ -299,6 +300,13 @@ createApp({
         return;
       }
 
+      this.isSubmitting = true;
+
+      const tg = window.Telegram?.WebApp;
+      const tgUser = tg?.initDataUnsafe?.user || {};
+      const tgChat = tg?.initDataUnsafe?.chat || {};
+      const chatId = tgUser.id || tgChat.id || null;
+
       const orderData = {
         event: "web_app_order",
         company_name: this.form.company_name.trim(),
@@ -306,6 +314,9 @@ createApp({
         city: this.form.city,
         client_name: (this.form.client_name || '').trim(),
         phone: this.form.phone.trim(),
+        chat_id: chatId,
+        tg_user_id: tgUser.id || null,
+        tg_username: tgUser.username || null,
         items: this.cartItems.map(i => ({
           sku: i.sku,
           name: i.name,
@@ -317,27 +328,50 @@ createApp({
         total_amount: Math.round(this.cartTotalAmount)
       };
 
-      console.log('Tork Mini App — Generated order payload:', orderData);
+      console.log('Tork Mini App — Submitting order payload:', orderData);
       window.__lastTorkOrderData = orderData; // Useful for automated checks & debugging
 
+      // 1. Direct HTTP webhook submission to n8n (works from inline button, menu button, direct link)
+      try {
+        const resp = await fetch('/webhook/web-app-order', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(orderData)
+        });
+        if (resp.ok) {
+          console.log('Order submitted successfully via webhook');
+        } else {
+          console.warn('Webhook responded with status', resp.status);
+        }
+      } catch (err) {
+        console.warn('Direct webhook fetch failed:', err);
+      }
+
+      // 2. Also call Telegram WebApp sendData if supported (e.g. keyboard button)
+      if (tg && typeof tg.sendData === 'function') {
+        try {
+          tg.sendData(JSON.stringify(orderData));
+        } catch (e) {
+          console.warn('Telegram.WebApp.sendData not allowed or failed:', e);
+        }
+      }
+
+      this.isSubmitting = false;
       this.haptic('success');
       this.submittedOrderData = orderData;
       this.orderSuccess = true;
 
-      // Send to Telegram WebApp if available
-      if (window.Telegram && window.Telegram.WebApp && typeof window.Telegram.WebApp.sendData === 'function') {
-        try {
-          window.Telegram.WebApp.sendData(JSON.stringify(orderData));
-          setTimeout(() => {
-            try {
-              window.Telegram.WebApp.close();
-            } catch (e) {
-              console.warn('Could not close Telegram WebApp window:', e);
-            }
-          }, 300);
-        } catch (err) {
-          console.warn('Telegram WebApp sendData call failed:', err);
-        }
+      // If inside Telegram WebApp, automatically close after a brief delay so user returns to chat
+      if (tg && typeof tg.close === 'function') {
+        setTimeout(() => {
+          try {
+            tg.close();
+          } catch (e) {
+            console.warn('Could not close Telegram WebApp window:', e);
+          }
+        }, 1800);
       }
     },
 
