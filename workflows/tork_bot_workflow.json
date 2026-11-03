@@ -835,6 +835,76 @@
           750
         ],
         "webhookId": "web-app-order"
+      },
+      {
+        "parameters": {
+          "jsCode": "const triggerJson = $('Telegram Trigger').first()?.json || $input.first()?.json || $json || {};\nconst message = triggerJson.message || triggerJson.callback_query?.message;\nconst fromUser = triggerJson.message?.from || triggerJson.callback_query?.from;\n\nconst userId = fromUser?.id != null ? String(fromUser.id).trim() : '';\nconst chatId = message?.chat?.id != null ? String(message.chat.id).trim() : (userId || '');\nconst username = fromUser?.username ? `@${fromUser.username}` : '';\nconst fullName = [fromUser?.first_name, fromUser?.last_name].filter(Boolean).join(' ') || username || 'Сотрудник';\n\nlet allowedRaw = '';\ntry {\n  if (typeof $env !== 'undefined' && $env.ALLOWED_TELEGRAM_IDS) {\n    allowedRaw = String($env.ALLOWED_TELEGRAM_IDS);\n  } else if (typeof process !== 'undefined' && process.env && process.env.ALLOWED_TELEGRAM_IDS) {\n    allowedRaw = String(process.env.ALLOWED_TELEGRAM_IDS);\n  }\n} catch (e) {\n  allowedRaw = '';\n}\n\nallowedRaw = allowedRaw.trim();\nconst allowedList = allowedRaw\n  ? allowedRaw.split(/[\\s,;]+/).map(s => s.trim()).filter(Boolean)\n  : [];\n\n// Если список пуст — режим настройки (доступ открыт)\n// Если список заполнен — проверяем userId или chatId\nconst isAllowed = (allowedList.length === 0) ||\n  (userId && allowedList.includes(userId)) ||\n  (chatId && allowedList.includes(chatId));\n\nreturn [{\n  json: {\n    ...triggerJson,\n    auth: {\n      user_id: userId,\n      chat_id: chatId,\n      user_name: fullName,\n      username: username,\n      is_allowed: isAllowed,\n      whitelist_configured: allowedList.length > 0,\n      checked_at: new Date().toISOString()\n    }\n  }\n}];"
+        },
+        "id": "node-check-manager-whitelist",
+        "name": "Check Manager Whitelist",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -780,
+          208
+        ]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "operator": {
+                  "operation": "equals",
+                  "type": "boolean"
+                },
+                "rightValue": true,
+                "id": "cond-is-allowed",
+                "leftValue": "={{ $json.auth ? $json.auth.is_allowed : true }}"
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "node-is-user-allowed",
+        "name": "Is User Allowed?",
+        "type": "n8n-nodes-base.if",
+        "position": [
+          -680,
+          208
+        ],
+        "typeVersion": 2
+      },
+      {
+        "parameters": {
+          "chatId": "={{ $json.auth ? $json.auth.chat_id : ($json.message?.chat?.id || $json.callback_query?.message?.chat?.id) }}",
+          "text": "⛔️ *Доступ ограничен (Manager-Only Mode)*\n\nЭтот бот предназначен исключительно для авторизованных менеджеров и сотрудников Tork.\n\n👤 *Ваш профиль:*\n• Имя: {{ $json.auth ? $json.auth.user_name : 'Сотрудник' }}\n• Telegram ID: `{{ $json.auth ? $json.auth.user_id : 'Не определен' }}`\n\nДля получения доступа передайте ваш Telegram ID администратору.",
+          "additionalFields": {
+            "appendAttribution": false,
+            "parse_mode": "Markdown"
+          }
+        },
+        "id": "node-send-access-denied",
+        "name": "Send Access Denied",
+        "type": "n8n-nodes-base.telegram",
+        "position": [
+          -680,
+          40
+        ],
+        "typeVersion": 1.2,
+        "credentials": {
+          "telegramApi": {
+            "id": "ildUvXJDz5GOalvb",
+            "name": "Telegram account"
+          }
+        }
       }
     ],
     "connections": {
@@ -1031,7 +1101,7 @@
         "main": [
           [
             {
-              "node": "Check Media Type",
+              "node": "Check Manager Whitelist",
               "type": "main",
               "index": 0
             }
@@ -1114,6 +1184,35 @@
           [
             {
               "node": "Parse WebApp Order & Match Distributor",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Check Manager Whitelist": {
+        "main": [
+          [
+            {
+              "node": "Is User Allowed?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Is User Allowed?": {
+        "main": [
+          [
+            {
+              "node": "Check Media Type",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Send Access Denied",
               "type": "main",
               "index": 0
             }
