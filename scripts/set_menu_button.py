@@ -22,7 +22,7 @@ def main():
     env_vars = load_env(env_path)
 
     token = os.getenv("TELEGRAM_BOT_TOKEN") or env_vars.get("TELEGRAM_BOT_TOKEN")
-    webhook_url = os.getenv("WEBHOOK_URL") or env_vars.get("WEBHOOK_URL", "https://romaine-towery-audrey.ngrok-free.dev")
+    webhook_url = os.getenv("WEBHOOK_URL") or env_vars.get("WEBHOOK_URL", "http://localhost:8088")
 
     if not token:
         raise ValueError("TELEGRAM_BOT_TOKEN not found in environment or .env")
@@ -33,7 +33,7 @@ def main():
     payload = {
         "menu_button": {
             "type": "web_app",
-            "text": "📝 Создать заказ",
+            "text": "✨ Каталог Tork",
             "web_app": {
                 "url": webapp_url
             }
