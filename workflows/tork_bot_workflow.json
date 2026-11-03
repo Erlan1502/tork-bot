@@ -120,7 +120,7 @@
       {
         "parameters": {
           "operation": "executeQuery",
-          "query": "INSERT INTO user_sessions_leads (tg_user_id, tg_username, client_name, distributor_id, current_step) VALUES ({{ $('Telegram Trigger').item.json.message ? $('Telegram Trigger').item.json.message.from.id : $('Telegram Trigger').item.json.callback_query.from.id }}, '{{ ($('Telegram Trigger').item.json.message ? $('Telegram Trigger').item.json.message.from.username : $('Telegram Trigger').item.json.callback_query.from.username) || '' }}', '{{ ($('Telegram Trigger').item.json.message ? $('Telegram Trigger').item.json.message.from.first_name : $('Telegram Trigger').item.json.callback_query.from.first_name) || 'Клиент' }}', {{ $env.DEFAULT_DISTRIBUTOR_ID || 1 }}, 'START') ON CONFLICT (tg_user_id) DO UPDATE SET tg_username = EXCLUDED.tg_username, client_name = EXCLUDED.client_name RETURNING *;",
+          "query": "INSERT INTO user_sessions_leads (tg_user_id, tg_username, client_name, distributor_id, current_step, selected_sku) VALUES ({{ $('Telegram Trigger').item.json.message ? $('Telegram Trigger').item.json.message.from.id : $('Telegram Trigger').item.json.callback_query.from.id }}, '{{ ($('Telegram Trigger').item.json.message ? $('Telegram Trigger').item.json.message.from.username : $('Telegram Trigger').item.json.callback_query.from.username) || '' }}', '{{ ($('Telegram Trigger').item.json.message ? $('Telegram Trigger').item.json.message.from.first_name : $('Telegram Trigger').item.json.callback_query.from.first_name) || 'Менеджер' }}', {{ $env.DEFAULT_DISTRIBUTOR_ID || 1 }}, 'MANAGER_MODE', '551000') ON CONFLICT (tg_user_id) DO UPDATE SET tg_username = EXCLUDED.tg_username, client_name = EXCLUDED.client_name, current_step = 'MANAGER_MODE' RETURNING *;",
           "options": {}
         },
         "id": "edab576e-e554-43c1-b3ca-7c90d20074df",
@@ -156,39 +156,15 @@
                         "operation": "equals",
                         "type": "string"
                       },
-                      "rightValue": "web_app_order",
-                      "id": "rule-web-app-order",
-                      "leftValue": "={{ ($json.message?.web_app_data?.data || $('Telegram Trigger').first()?.json?.message?.web_app_data?.data || $('Telegram Trigger').item?.json?.message?.web_app_data?.data) ? 'web_app_order' : (($json.callback_query || $('Telegram Trigger').first()?.json?.callback_query || $('Telegram Trigger').item?.json?.callback_query) ? 'callback' : ((($json.message?.photo || $('Telegram Trigger').first()?.json?.message?.photo) || (($json.message?.document || $('Telegram Trigger').first()?.json?.message?.document) && (($json.message?.document?.mime_type || $('Telegram Trigger').first()?.json?.message?.document?.mime_type) || '').startsWith('image/'))) ? 'photo' : 'other')) }}"
+                      "rightValue": "web_app_select",
+                      "id": "rule-web-app-select",
+                      "leftValue": "={{ ($json.message?.web_app_data?.data || $('Telegram Trigger').first()?.json?.message?.web_app_data?.data || $('Telegram Trigger').item?.json?.message?.web_app_data?.data) ? 'web_app_select' : ((($json.message?.photo || $('Telegram Trigger').first()?.json?.message?.photo) || (($json.message?.document || $('Telegram Trigger').first()?.json?.message?.document) && (($json.message?.document?.mime_type || $('Telegram Trigger').first()?.json?.message?.document?.mime_type) || '').startsWith('image/'))) ? 'photo' : (($json.callback_query || $('Telegram Trigger').first()?.json?.callback_query || $('Telegram Trigger').item?.json?.callback_query) ? 'callback' : 'other')) }}"
                     }
                   ],
                   "combinator": "and"
                 },
                 "renameOutput": true,
-                "outputKey": "web_app_order"
-              },
-              {
-                "conditions": {
-                  "options": {
-                    "caseSensitive": true,
-                    "leftValue": "",
-                    "typeValidation": "strict",
-                    "version": 2
-                  },
-                  "conditions": [
-                    {
-                      "operator": {
-                        "operation": "equals",
-                        "type": "string"
-                      },
-                      "rightValue": "callback",
-                      "id": "rule-callback",
-                      "leftValue": "={{ ($json.message?.web_app_data?.data || $('Telegram Trigger').first()?.json?.message?.web_app_data?.data || $('Telegram Trigger').item?.json?.message?.web_app_data?.data) ? 'web_app_order' : (($json.callback_query || $('Telegram Trigger').first()?.json?.callback_query || $('Telegram Trigger').item?.json?.callback_query) ? 'callback' : ((($json.message?.photo || $('Telegram Trigger').first()?.json?.message?.photo) || (($json.message?.document || $('Telegram Trigger').first()?.json?.message?.document) && (($json.message?.document?.mime_type || $('Telegram Trigger').first()?.json?.message?.document?.mime_type) || '').startsWith('image/'))) ? 'photo' : 'other')) }}"
-                    }
-                  ],
-                  "combinator": "and"
-                },
-                "renameOutput": true,
-                "outputKey": "callback_query"
+                "outputKey": "web_app_select"
               },
               {
                 "conditions": {
@@ -206,13 +182,37 @@
                       },
                       "rightValue": "photo",
                       "id": "rule-photo",
-                      "leftValue": "={{ ($json.message?.web_app_data?.data || $('Telegram Trigger').first()?.json?.message?.web_app_data?.data || $('Telegram Trigger').item?.json?.message?.web_app_data?.data) ? 'web_app_order' : (($json.callback_query || $('Telegram Trigger').first()?.json?.callback_query || $('Telegram Trigger').item?.json?.callback_query) ? 'callback' : ((($json.message?.photo || $('Telegram Trigger').first()?.json?.message?.photo) || (($json.message?.document || $('Telegram Trigger').first()?.json?.message?.document) && (($json.message?.document?.mime_type || $('Telegram Trigger').first()?.json?.message?.document?.mime_type) || '').startsWith('image/'))) ? 'photo' : 'other')) }}"
+                      "leftValue": "={{ ($json.message?.web_app_data?.data || $('Telegram Trigger').first()?.json?.message?.web_app_data?.data || $('Telegram Trigger').item?.json?.message?.web_app_data?.data) ? 'web_app_select' : ((($json.message?.photo || $('Telegram Trigger').first()?.json?.message?.photo) || (($json.message?.document || $('Telegram Trigger').first()?.json?.message?.document) && (($json.message?.document?.mime_type || $('Telegram Trigger').first()?.json?.message?.document?.mime_type) || '').startsWith('image/'))) ? 'photo' : (($json.callback_query || $('Telegram Trigger').first()?.json?.callback_query || $('Telegram Trigger').item?.json?.callback_query) ? 'callback' : 'other')) }}"
                     }
                   ],
                   "combinator": "and"
                 },
                 "renameOutput": true,
                 "outputKey": "photo"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "operator": {
+                        "operation": "equals",
+                        "type": "string"
+                      },
+                      "rightValue": "callback",
+                      "id": "rule-callback",
+                      "leftValue": "={{ ($json.message?.web_app_data?.data || $('Telegram Trigger').first()?.json?.message?.web_app_data?.data || $('Telegram Trigger').item?.json?.message?.web_app_data?.data) ? 'web_app_select' : ((($json.message?.photo || $('Telegram Trigger').first()?.json?.message?.photo) || (($json.message?.document || $('Telegram Trigger').first()?.json?.message?.document) && (($json.message?.document?.mime_type || $('Telegram Trigger').first()?.json?.message?.document?.mime_type) || '').startsWith('image/'))) ? 'photo' : (($json.callback_query || $('Telegram Trigger').first()?.json?.callback_query || $('Telegram Trigger').item?.json?.callback_query) ? 'callback' : 'other')) }}"
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "callback"
               }
             ]
           },
@@ -471,15 +471,14 @@
           },
           "sendBody": true,
           "specifyBody": "json",
-          "jsonBody": "={{ JSON.stringify({\n  contents: [\n    {\n      parts: [\n        {\n          text: 'You are an expert AI photo editor for Tork (Essity). Mount and composite the exact Tork dispenser shown in the second image onto the washroom wall in the first image.\\nLocation on wall: ' + ($json.placement_instruction_en || 'Mount the dispenser on the wall to the side of the sink counter at eye level') + '.\\nPreserve the exact product shape, stainless steel metallic finish/color, front window, dispensing slot and Tork logo from the second reference image. Real product dimensions: width ' + ($json.dimensions_cm?.w || 33.7) + ' cm, height ' + ($json.dimensions_cm?.h || 37.2) + ' cm. Scale it realistically relative to the sink. Cast natural contact shadows onto the wall tiles matching room lighting. Return only the photorealistic composite image of the bathroom with the mounted dispenser.'\n        },\n        {\n          inline_data: {\n            mime_type: 'image/jpeg',\n            data: $json.user_photo_base64\n          }\n        },\n        {\n          inline_data: {\n            mime_type: 'image/png',\n            data: $json.dispenser_clean_base64\n          }\n        }\n      ]\n    }\n  ],\n  generationConfig: {\n    responseModalities: ['IMAGE']\n  }\n}) }}"
+          "jsonBody": "={{ JSON.stringify({\n  contents: [\n    {\n      parts: [\n        { text: $json.prompt_text },\n        { inline_data: { mime_type: 'image/jpeg', data: $json.user_photo_base64 } },\n        { inline_data: { mime_type: 'image/png', data: $json.dispenser_clean_base64 } }\n      ]\n    }\n  ],\n  generationConfig: {\n    responseModalities: ['IMAGE']\n  }\n}) }}"
         },
-        "onError": "continueRegularOutput",
-        "id": "fde13f4d-8b41-454f-b272-fa8025cdad42",
+        "id": "node-call-image-edit-api",
         "name": "Call Image Edit API",
         "type": "n8n-nodes-base.httpRequest",
         "position": [
-          720,
-          368
+          640,
+          320
         ],
         "typeVersion": 4.2
       },
@@ -905,6 +904,220 @@
             "name": "Telegram account"
           }
         }
+      },
+      {
+        "parameters": {
+          "jsCode": "const trigger = $('Telegram Trigger').first()?.json || $input.first()?.json || {};\nconst rawData = trigger.message?.web_app_data?.data || $json.message?.web_app_data?.data || '{}';\nlet parsed = {};\ntry {\n  parsed = typeof rawData === 'string' ? JSON.parse(rawData) : (rawData || {});\n} catch (e) {\n  parsed = {};\n}\n\nconst fromUser = trigger.message?.from || trigger.callback_query?.from || {};\nconst tgUserId = fromUser.id || trigger.message?.chat?.id || 0;\nconst sku = String(parsed.sku || parsed.selected_sku || '551000').trim();\nconst colorLabels = {\n  white: 'Белый',\n  black: 'Черный',\n  stainless_steel: 'Нержавеющая сталь',\n  none: 'Стандарт'\n};\nconst colorRu = colorLabels[parsed.color] || parsed.color || 'Белый';\n\nreturn [{\n  json: {\n    action: 'select_dispenser',\n    sku: sku,\n    name: parsed.name || `Диспенсер Tork (арт. ${sku})`,\n    system_code: parsed.system_code || 'H1',\n    color: parsed.color || 'white',\n    color_ru: colorRu,\n    category: parsed.category || 'dispenser',\n    price: parsed.price || 0,\n    tg_user_id: tgUserId,\n    chat_id: trigger.message?.chat?.id || tgUserId,\n    raw_payload: parsed\n  }\n}];"
+        },
+        "id": "node-parse-selected-dispenser",
+        "name": "Parse Selected Dispenser",
+        "type": "n8n-nodes-base.code",
+        "position": [
+          0,
+          100
+        ],
+        "typeVersion": 2
+      },
+      {
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "UPDATE user_sessions_leads SET selected_sku = '{{ $json.sku }}', selected_bundle = '{{ JSON.stringify($json.raw_payload) }}'::jsonb, updated_at = NOW() WHERE tg_user_id = {{ $json.tg_user_id }} RETURNING *;",
+          "options": {}
+        },
+        "id": "node-save-selected-dispenser",
+        "name": "Save Selected Dispenser (SQL)",
+        "type": "n8n-nodes-base.postgres",
+        "position": [
+          200,
+          100
+        ],
+        "typeVersion": 2.4,
+        "credentials": {
+          "postgres": {
+            "id": "ssRaEX0w25vYf2wI",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "chatId": "={{ $('Parse Selected Dispenser').first().json.chat_id || $('Parse Selected Dispenser').first().json.tg_user_id }}",
+          "text": "={{ '✅ <b>Выбран диспенсер для примерки:</b>\\n' + '<b>' + $('Parse Selected Dispenser').first().json.name + '</b>\\n\\n' + '• <b>Артикул:</b> <code>' + $('Parse Selected Dispenser').first().json.sku + '</code>\\n' + '• <b>Система:</b> <b>' + $('Parse Selected Dispenser').first().json.system_code + '</b>\\n' + '• <b>Цвет:</b> <b>' + $('Parse Selected Dispenser').first().json.color_ru + '</b>\\n\\n' + '📸 <b>Следующий шаг:</b> Отправьте фото стены или санузла клиента в этот чат для генерации фотомонтажа.' }}",
+          "replyMarkup": "inlineKeyboard",
+          "inlineKeyboard": {
+            "rows": [
+              {
+                "row": {
+                  "buttons": [
+                    {
+                      "text": "🔄 Выбрать другой диспенсер",
+                      "additionalFields": {
+                        "web_app": {
+                          "url": "={{ ($env.WEBHOOK_URL ? $env.WEBHOOK_URL.replace(/\\/+$/, '') : 'http://localhost:8088') + '/app/index.html' }}"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "additionalFields": {
+            "appendAttribution": false,
+            "parse_mode": "HTML"
+          }
+        },
+        "id": "node-send-dispenser-confirm",
+        "name": "Send Dispenser Confirmation",
+        "type": "n8n-nodes-base.telegram",
+        "position": [
+          420,
+          100
+        ],
+        "typeVersion": 1.2,
+        "credentials": {
+          "telegramApi": {
+            "id": "ildUvXJDz5GOalvb",
+            "name": "Telegram account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "SELECT u.tg_user_id, COALESCE(u.selected_sku, '551000') as selected_sku, COALESCE(p.name, 'Tork Matic® диспенсер полотенец H1') as dispenser_name, COALESCE(p.system_code, 'H1') as system_code, COALESCE(p.color, 'white') as color, COALESCE(p.dimensions_cm, '{\"w\": 33.7, \"h\": 37.2, \"d\": 20.6}'::jsonb) as dimensions_cm, COALESCE(p.category, 'dispenser') as category FROM user_sessions_leads u LEFT JOIN products p ON p.sku = COALESCE(u.selected_sku, '551000') WHERE u.tg_user_id = {{ $('Telegram Trigger').item.json.message ? $('Telegram Trigger').item.json.message.from.id : $('Telegram Trigger').item.json.callback_query.from.id }};",
+          "options": {}
+        },
+        "id": "node-fetch-manager-selection",
+        "name": "Fetch Current Manager Selection (SQL)",
+        "type": "n8n-nodes-base.postgres",
+        "position": [
+          200,
+          320
+        ],
+        "typeVersion": 2.4,
+        "credentials": {
+          "postgres": {
+            "id": "ssRaEX0w25vYf2wI",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "const fs = require('fs');\n\n// 1. Downloaded photo binary\nconst photoItem = $('Download Telegram Photo').first();\nlet userPhotoBase64 = '';\nif (photoItem?.binary?.data?.data) {\n  userPhotoBase64 = photoItem.binary.data.data;\n}\n\n// 2. Selection from DB query\nconst selection = $('Fetch Current Manager Selection (SQL)').first()?.json || {};\nconst sku = String(selection.selected_sku || '551000').trim();\nconst name = selection.dispenser_name || 'Диспенсер Tork';\nconst systemCode = selection.system_code || 'H1';\nconst color = selection.color || 'white';\nconst dims = selection.dimensions_cm || { w: 33.7, h: 37.2, d: 20.6 };\n\n// 3. Load clean PNG from /data/assets/images/\nlet dispenserBase64 = '';\nconst searchPaths = [\n  `/data/assets/images/${sku}.png`,\n  `/data/assets/images/${sku}.jpg`,\n  '/data/assets/images/551000.png'\n];\n\nfor (const p of searchPaths) {\n  try {\n    if (fs.existsSync(p)) {\n      dispenserBase64 = fs.readFileSync(p).toString('base64');\n      if (dispenserBase64) break;\n    }\n  } catch (err) {}\n}\n\nconst promptText = `You are an expert AI photo editor for Tork (Essity). Mount and composite the exact Tork dispenser shown in the second image onto the washroom wall in the first image.\\n` +\n  `Location: mount the dispenser realistically on the wall near the sink or mirror at natural eye and hand reach level.\\n` +\n  `Preserve the exact product shape, color finish (${color}), front window, dispensing slot and Tork logo from the second reference image.\\n` +\n  `Real product dimensions: width ${dims.w || 33.7} cm, height ${dims.h || 37.2} cm.\\n` +\n  `Scale it realistically relative to the room tiles and counter. Cast natural realistic contact shadows onto the wall matching room lighting.\\n` +\n  `Return only the photorealistic composite image of the room with the mounted dispenser.`;\n\nconst tgTrigger = $('Telegram Trigger').first()?.json || {};\nconst chatId = tgTrigger.message?.chat?.id || tgTrigger.callback_query?.message?.chat?.id;\n\nreturn [{\n  json: {\n    sku: sku,\n    name: name,\n    system_code: systemCode,\n    color: color,\n    dimensions_cm: dims,\n    dimensions_w: dims.w || 33.7,\n    dimensions_h: dims.h || 37.2,\n    user_photo_base64: userPhotoBase64,\n    dispenser_clean_base64: dispenserBase64,\n    prompt_text: promptText,\n    chat_id: chatId\n  }\n}];"
+        },
+        "id": "node-prepare-manager-montage",
+        "name": "Prepare Manager Montage",
+        "type": "n8n-nodes-base.code",
+        "position": [
+          420,
+          320
+        ],
+        "typeVersion": 2
+      },
+      {
+        "parameters": {
+          "jsCode": "const prep = $('Prepare Manager Montage').first()?.json || {};\nconst apiResponse = $input.first()?.json || {};\n\nlet base64Image = '';\nlet mimeType = 'image/png';\n\nconst parts = apiResponse.candidates?.[0]?.content?.parts || [];\nconst imagePart = parts.find(p => (p.inlineData && p.inlineData.data) || (p.inline_data && p.inline_data.data));\n\nif (imagePart?.inlineData?.data) {\n  base64Image = imagePart.inlineData.data;\n  mimeType = imagePart.inlineData.mimeType || 'image/jpeg';\n} else if (imagePart?.inline_data?.data) {\n  base64Image = imagePart.inline_data.data;\n  mimeType = imagePart.inline_data.mime_type || 'image/jpeg';\n}\n\n// Fallback to clean dispenser PNG if Gemini returned text or empty\nif (!base64Image) {\n  base64Image = prep.dispenser_clean_base64 || '';\n  mimeType = 'image/png';\n}\n\nconst colorLabels = {\n  white: 'Белый',\n  black: 'Черный',\n  stainless_steel: 'Нержавеющая сталь',\n  none: 'Стандарт'\n};\nconst colorRu = colorLabels[prep.color] || prep.color || 'Белый';\n\nconst caption = `✨ <b>Визуализация готова!</b>\\n\\n` +\n  `• Диспенсер: <b>${prep.name}</b>\\n` +\n  `• Артикул: <code>${prep.sku}</code>\\n` +\n  `• Система: <b>${prep.system_code}</b> (${colorRu})\\n` +\n  `• Габариты: ${prep.dimensions_w} × ${prep.dimensions_h} см\\n\\n` +\n  `<i>Монтаж выполнен с сохранением масштаба и теней.</i>`;\n\nreturn [{\n  json: {\n    sku: prep.sku,\n    dispenser_name: prep.name,\n    system_code: prep.system_code,\n    color_ru: colorRu,\n    caption: caption,\n    chat_id: prep.chat_id,\n    has_generated_image: Boolean(imagePart)\n  },\n  binary: {\n    visualization: {\n      data: base64Image,\n      mimeType: mimeType,\n      fileName: `tork_${prep.sku}_fitting.png`\n    }\n  }\n}];"
+        },
+        "id": "node-process-manager-result",
+        "name": "Process Manager Result",
+        "type": "n8n-nodes-base.code",
+        "position": [
+          860,
+          320
+        ],
+        "typeVersion": 2
+      },
+      {
+        "parameters": {
+          "resource": "message",
+          "operation": "sendPhoto",
+          "chatId": "={{ $json.chat_id || $('Telegram Trigger').first().json.message.chat.id }}",
+          "binaryData": true,
+          "binaryPropertyName": "visualization",
+          "caption": "={{ $json.caption }}",
+          "replyMarkup": "inlineKeyboard",
+          "inlineKeyboard": {
+            "rows": [
+              {
+                "row": {
+                  "buttons": [
+                    {
+                      "text": "🔄 Примерить другой диспенсер",
+                      "additionalFields": {
+                        "web_app": {
+                          "url": "={{ ($env.WEBHOOK_URL ? $env.WEBHOOK_URL.replace(/\\/+$/, '') : 'http://localhost:8088') + '/app/index.html' }}"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "additionalFields": {
+            "appendAttribution": false,
+            "parse_mode": "HTML"
+          }
+        },
+        "id": "node-send-manager-result-photo",
+        "name": "Send Manager Result Photo",
+        "type": "n8n-nodes-base.telegram",
+        "position": [
+          1080,
+          320
+        ],
+        "typeVersion": 1.2,
+        "credentials": {
+          "telegramApi": {
+            "id": "ildUvXJDz5GOalvb",
+            "name": "Telegram account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "chatId": "={{ $json.auth ? $json.auth.chat_id : ($json.message?.chat?.id || $json.callback_query?.message?.chat?.id) }}",
+          "text": "={{ '👋 <b>Здравствуйте, ' + ($json.auth?.user_name || 'Менеджер') + '!</b>\\n\\n' + 'Добро пожаловать в <b>Tork Visualizer (Manager-Only Mode)</b>.\\n' + 'Этот инструмент предназначен для быстрого создания фотомонтажа и визуализации диспенсеров Tork в интерьерах клиентов.\\n\\n' + '📦 В каталоге доступно <b>165 товаров Tork</b> (83 настенных диспенсера для примерки).\\n\\n' + '🚀 <b>Как работать:</b>\\n' + '1. Откройте <b>«✨ Каталог диспенсеров»</b> по кнопке ниже и выберите нужный артикул.\\n' + '2. Отправьте в этот чат фотографию стены или санузла клиента.\\n' + '3. Нейросеть смонтирует диспенсер на стену с сохранением масштаба и естественных теней!' }}",
+          "replyMarkup": "inlineKeyboard",
+          "inlineKeyboard": {
+            "rows": [
+              {
+                "row": {
+                  "buttons": [
+                    {
+                      "text": "✨ Каталог диспенсеров (165 SKU)",
+                      "additionalFields": {
+                        "web_app": {
+                          "url": "={{ ($env.WEBHOOK_URL ? $env.WEBHOOK_URL.replace(/\\/+$/, '') : 'http://localhost:8088') + '/app/index.html' }}"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "additionalFields": {
+            "appendAttribution": false,
+            "parse_mode": "HTML"
+          }
+        },
+        "id": "node-send-manager-welcome",
+        "name": "Send Manager Welcome & Menu",
+        "type": "n8n-nodes-base.telegram",
+        "position": [
+          0,
+          500
+        ],
+        "typeVersion": 1.2,
+        "credentials": {
+          "telegramApi": {
+            "id": "ildUvXJDz5GOalvb",
+            "name": "Telegram account"
+          }
+        }
       }
     ],
     "connections": {
@@ -948,24 +1161,6 @@
           ]
         ]
       },
-      "Check Rate Limit": {
-        "main": [
-          [
-            {
-              "node": "Download Telegram Photo",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "Limit Exceeded Message",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
       "Call VLM (OpenAI-Compatible)": {
         "main": [
           [
@@ -1003,29 +1198,7 @@
         "main": [
           [
             {
-              "node": "Calculate KP Bundle",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Calculate KP Bundle": {
-        "main": [
-          [
-            {
-              "node": "Generate PDF via Gotenberg",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Send Client Result & Inline Buttons": {
-        "main": [
-          [
-            {
-              "node": "Send Client PDF Document",
+              "node": "Process Manager Result",
               "type": "main",
               "index": 0
             }
@@ -1036,39 +1209,28 @@
         "main": [
           [
             {
-              "node": "Parse WebApp Order & Match Distributor",
+              "node": "Parse Selected Dispenser",
               "type": "main",
               "index": 0
             }
           ],
           [
             {
-              "node": "Update Session Segment",
+              "node": "Download Telegram Photo",
               "type": "main",
               "index": 0
             }
           ],
           [
             {
-              "node": "Check Rate Limit",
+              "node": "Send Manager Welcome & Menu",
               "type": "main",
               "index": 0
             }
           ],
           [
             {
-              "node": "Send Welcome Onboarding",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Update Session Segment": {
-        "main": [
-          [
-            {
-              "node": "Send Photo Request",
+              "node": "Send Manager Welcome & Menu",
               "type": "main",
               "index": 0
             }
@@ -1079,7 +1241,7 @@
         "main": [
           [
             {
-              "node": "Prepare VLM & Session",
+              "node": "Fetch Current Manager Selection (SQL)",
               "type": "main",
               "index": 0
             }
@@ -1102,28 +1264,6 @@
           [
             {
               "node": "Check Manager Whitelist",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Generate PDF via Gotenberg": {
-        "main": [
-          [
-            {
-              "node": "Send Client Result & Inline Buttons",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Send Client PDF Document": {
-        "main": [
-          [
-            {
-              "node": "Notify Managers Group",
               "type": "main",
               "index": 0
             }
@@ -1213,6 +1353,61 @@
           [
             {
               "node": "Send Access Denied",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Parse Selected Dispenser": {
+        "main": [
+          [
+            {
+              "node": "Save Selected Dispenser (SQL)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Save Selected Dispenser (SQL)": {
+        "main": [
+          [
+            {
+              "node": "Send Dispenser Confirmation",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Fetch Current Manager Selection (SQL)": {
+        "main": [
+          [
+            {
+              "node": "Prepare Manager Montage",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Prepare Manager Montage": {
+        "main": [
+          [
+            {
+              "node": "Call Image Edit API",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Process Manager Result": {
+        "main": [
+          [
+            {
+              "node": "Send Manager Result Photo",
               "type": "main",
               "index": 0
             }

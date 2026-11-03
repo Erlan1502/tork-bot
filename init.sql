@@ -62,6 +62,7 @@ CREATE TABLE IF NOT EXISTS user_sessions_leads (
     last_render_date DATE DEFAULT CURRENT_DATE,
     last_photo_file_id VARCHAR(255),
     selected_bundle JSONB,
+    selected_sku VARCHAR(50) DEFAULT '551000',
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
 );
