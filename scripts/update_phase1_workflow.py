@@ -220,3 +220,4 @@ def update_workflow():
 if __name__ == "__main__":
     update_docker_compose()
     update_workflow()
+

@@ -9,53 +9,33 @@ createApp({
       loading: true,
       error: null,
       selectedZone: 'zone_wash',
-      selectedCategory: 'all', // 'all' | 'dispenser' | 'refill'
+      selectedCategory: 'dispenser', // Default to dispensers for fitting mode ('dispenser' | 'all' | 'refill')
       searchQuery: '',
-      cart: {}, // { [sku]: { ...product, qty: number } }
-      isCartOpen: false,
       preselectedSku: null,
-      orderSuccess: false,
+      selectedProduct: null, // Product opened in detail preview modal
+      selectionSuccess: false,
       isSubmitting: false,
-      submittedOrderData: null,
+      submittedSelectionData: null,
       copiedPayload: false,
-      form: {
-        company_name: '',
-        bin: '',
-        city: 'Алматы',
-        client_name: '',
-        phone: '+7'
-      },
-      formErrors: {},
       zones: [
         { id: 'zone_wash', label: 'Мытье рук', icon: '🧼' },
-        { id: 'zone_toilet', label: 'Туалетная зона', icon: '🚽' },
-        { id: 'zone_accessories', label: 'Оснащение', icon: '🗑' },
+        { id: 'zone_toilet', label: 'Туалетная', icon: '🚽' },
+        { id: 'zone_accessories', label: 'Корзины / Акс.', icon: '🗑️' },
         { id: 'zone_wiping', label: 'Протирка', icon: '🧻' }
-      ],
-      cities: ['Астана', 'Алматы', 'Шымкент']
+      ]
     };
   },
 
   computed: {
-    cartItems() {
-      return Object.values(this.cart);
-    },
-
-    cartTotalQty() {
-      return this.cartItems.reduce((sum, item) => sum + item.qty, 0);
-    },
-
-    cartTotalAmount() {
-      return this.cartItems.reduce((sum, item) => sum + item.price * item.qty, 0);
-    },
-
     currentZoneProducts() {
-      return this.products.filter(p => p.zone === this.selectedZone);
+      return (this.products || []).filter(p => p.zone === this.selectedZone);
     },
 
     zoneCounts() {
       const counts = { all: 0, dispenser: 0, refill: 0 };
-      const current = this.currentZoneProducts;
+      const current = (typeof this.currentZoneProducts === 'function' 
+        ? this.currentZoneProducts() 
+        : this.currentZoneProducts) || [];
       counts.all = current.length;
       for (const p of current) {
         if (p.category === 'dispenser') counts.dispenser++;
@@ -68,13 +48,17 @@ createApp({
       const q = this.searchQuery.trim().toLowerCase();
       if (q.length > 0) {
         return this.products.filter(p => 
-          p.sku.toLowerCase().includes(q) || 
-          p.name.toLowerCase().includes(q) ||
-          p.system_code.toLowerCase().includes(q)
+          (p.sku && p.sku.toLowerCase().includes(q)) || 
+          (p.name && p.name.toLowerCase().includes(q)) ||
+          (p.system_code && p.system_code.toLowerCase().includes(q))
         );
       }
 
-      return this.currentZoneProducts.filter(p => {
+      const zoneProducts = (typeof this.currentZoneProducts === 'function' 
+        ? this.currentZoneProducts() 
+        : this.currentZoneProducts) || [];
+
+      return zoneProducts.filter(p => {
         if (this.selectedCategory === 'all') return true;
         return p.category === this.selectedCategory;
       });
@@ -104,41 +88,38 @@ createApp({
     async loadCatalog() {
       this.loading = true;
       this.error = null;
+
       try {
-        // Try relative first, then fallback to /app/products.json
-        let res;
-        try {
-          res = await fetch('products.json');
-          if (!res.ok) throw new Error('Not found relative');
-        } catch (e) {
-          res = await fetch('/app/products.json');
+        let resp = await fetch('products.json');
+        if (!resp.ok) {
+          resp = await fetch('/app/products.json');
         }
 
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}: Failed to load catalog data`);
+        if (!resp.ok) {
+          throw new Error(`Ошибка загрузки каталога (код: ${resp.status})`);
         }
 
-        const data = await res.json();
+        const data = await resp.json();
         this.products = data;
         this.loading = false;
-
         this.handlePreselectedSku();
       } catch (err) {
-        console.error('Catalog load error:', err);
-        this.error = 'Не удалось загрузить каталог товаров. Проверьте соединение с сервером.';
+        console.error('Ошибка получения каталога products.json:', err);
+        this.error = err.message || 'Не удалось загрузить каталог товаров';
         this.loading = false;
       }
     },
 
     handlePreselectedSku() {
       const urlParams = new URLSearchParams(window.location.search);
-      const preselect = urlParams.get('preselect_sku');
+      const preselect = urlParams.get('preselect_sku') || urlParams.get('sku');
       if (preselect) {
         this.preselectedSku = String(preselect).trim();
         const item = this.products.find(p => p.sku === this.preselectedSku);
         if (item) {
           this.selectedZone = item.zone;
-          this.addToCart(item, 1);
+          this.selectedCategory = item.category || 'all';
+          this.selectedProduct = item;
           this.$nextTick(() => {
             const el = document.getElementById(`product-${this.preselectedSku}`);
             if (el) {
@@ -169,215 +150,92 @@ createApp({
       this.searchQuery = '';
     },
 
-    addToCart(product, qty = 1) {
-      if (!this.cart[product.sku]) {
-        this.cart = {
-          ...this.cart,
-          [product.sku]: {
-            sku: product.sku,
-            name: product.name,
-            price: product.price,
-            system_code: product.system_code,
-            category: product.category,
-            color: product.color,
-            image_url: product.image_url,
-            qty: qty
-          }
-        };
-      } else {
-        this.cart[product.sku].qty += qty;
-      }
+    openProductModal(product) {
+      this.selectedProduct = product;
+      this.selectionSuccess = false;
       this.haptic('impact');
     },
 
-    updateQty(sku, delta) {
-      if (!this.cart[sku]) return;
-      const newQty = this.cart[sku].qty + delta;
-      if (newQty <= 0) {
-        const nextCart = { ...this.cart };
-        delete nextCart[sku];
-        this.cart = nextCart;
-      } else {
-        this.cart[sku].qty = newQty;
-      }
-      this.haptic('impact');
+    closeProductModal() {
+      this.selectedProduct = null;
+      this.selectionSuccess = false;
     },
 
-    removeFromCart(sku) {
-      if (this.cart[sku]) {
-        const nextCart = { ...this.cart };
-        delete nextCart[sku];
-        this.cart = nextCart;
-        this.haptic('notification');
-      }
-    },
-
-    getItemQty(sku) {
-      return this.cart[sku]?.qty || 0;
-    },
-
-    openCart() {
-      this.isCartOpen = true;
-      this.formErrors = {};
-      this.haptic('impact');
-    },
-
-    closeCart() {
-      this.isCartOpen = false;
-      this.orderSuccess = false;
-    },
-
-    onBinInput(e) {
-      const digitsOnly = e.target.value.replace(/\D/g, '').slice(0, 12);
-      this.form.bin = digitsOnly;
-      if (this.formErrors.bin && digitsOnly.length === 12) {
-        delete this.formErrors.bin;
-      }
-    },
-
-    onPhoneInput(e) {
-      let raw = e.target.value.replace(/\D/g, '');
-      if (raw.startsWith('8')) {
-        raw = '7' + raw.slice(1);
-      }
-      if (!raw.startsWith('7')) {
-        raw = '7' + raw;
-      }
-      raw = raw.slice(0, 11);
-
-      let formatted = '+7';
-      if (raw.length > 1) {
-        formatted += ' (' + raw.slice(1, 4);
-      }
-      if (raw.length >= 4) {
-        formatted += ') ' + raw.slice(4, 7);
-      }
-      if (raw.length >= 7) {
-        formatted += '-' + raw.slice(7, 9);
-      }
-      if (raw.length >= 9) {
-        formatted += '-' + raw.slice(9, 11);
-      }
-
-      this.form.phone = formatted;
-      if (this.formErrors.phone && raw.length >= 11) {
-        delete this.formErrors.phone;
-      }
-    },
-
-    validateForm() {
-      const errors = {};
-      if (!this.form.company_name || !this.form.company_name.trim()) {
-        errors.company_name = 'Укажите название компании или ИП';
-      }
-
-      const binDigits = (this.form.bin || '').replace(/\D/g, '');
-      if (binDigits.length !== 12) {
-        errors.bin = 'БИН/ИИН должен содержать ровно 12 цифр';
-      }
-
-      if (!this.form.city) {
-        errors.city = 'Выберите город поставки';
-      }
-
-      const phoneDigits = (this.form.phone || '').replace(/\D/g, '');
-      if (phoneDigits.length < 11) {
-        errors.phone = 'Укажите корректный номер телефона (+7 (7XX) XXX-XX-XX)';
-      }
-
-      this.formErrors = errors;
-      return Object.keys(errors).length === 0;
-    },
-
-    async submitOrder() {
-      if (this.cartItems.length === 0) {
-        alert('Корзина пуста. Добавьте товары из каталога.');
-        return;
-      }
-
-      if (!this.validateForm()) {
-        this.haptic('error');
-        return;
-      }
+    async confirmDispenserSelection(product) {
+      if (!product || this.isSubmitting) return;
 
       this.isSubmitting = true;
+      this.haptic('impact');
 
       const tg = window.Telegram?.WebApp;
       const tgUser = tg?.initDataUnsafe?.user || {};
       const tgChat = tg?.initDataUnsafe?.chat || {};
       const chatId = tgUser.id || tgChat.id || null;
 
-      const orderData = {
-        event: "web_app_order",
-        company_name: this.form.company_name.trim(),
-        bin: this.form.bin.trim(),
-        city: this.form.city,
-        client_name: (this.form.client_name || '').trim(),
-        phone: this.form.phone.trim(),
+      const payload = {
+        action: 'select_dispenser',
+        event: 'select_dispenser',
+        sku: String(product.sku).trim(),
+        name: product.name,
+        category: product.category,
+        product_type: product.product_type,
+        system_code: product.system_code,
+        color: product.color,
+        price: product.price,
+        image_url: product.image_url,
         chat_id: chatId,
         tg_user_id: tgUser.id || null,
         tg_username: tgUser.username || null,
-        items: this.cartItems.map(i => ({
-          sku: i.sku,
-          name: i.name,
-          price: i.price,
-          qty: i.qty,
-          line_total: Math.round(i.price * i.qty),
-          system_code: i.system_code
-        })),
-        total_amount: Math.round(this.cartTotalAmount)
+        timestamp: new Date().toISOString()
       };
 
-      console.log('Tork Mini App — Submitting order payload:', orderData);
-      window.__lastTorkOrderData = orderData; // Useful for automated checks & debugging
+      console.log('Tork Mini App — Dispenser selected payload:', payload);
+      window.__lastTorkSelectionData = payload; // Global for testing and debugging
 
-      // 1. Direct HTTP webhook submission to n8n (works from inline button, menu button, direct link)
+      // 1. Direct fetch to webhook if available
       try {
-        const resp = await fetch('/webhook/web-app-order', {
+        await fetch('/webhook/select-dispenser', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(orderData)
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
         });
-        if (resp.ok) {
-          console.log('Order submitted successfully via webhook');
-        } else {
-          console.warn('Webhook responded with status', resp.status);
-        }
-      } catch (err) {
-        console.warn('Direct webhook fetch failed:', err);
+      } catch (e) {
+        // Fallback silently if standalone
       }
 
-      // 2. Also call Telegram WebApp sendData if supported (e.g. keyboard button)
+      // 2. Send via Telegram WebApp sendData
       if (tg && typeof tg.sendData === 'function') {
         try {
-          tg.sendData(JSON.stringify(orderData));
+          tg.sendData(JSON.stringify(payload));
         } catch (e) {
-          console.warn('Telegram.WebApp.sendData not allowed or failed:', e);
+          console.warn('Telegram.WebApp.sendData error:', e);
         }
       }
 
       this.isSubmitting = false;
       this.haptic('success');
-      this.submittedOrderData = orderData;
-      this.orderSuccess = true;
+      this.submittedSelectionData = payload;
+      this.selectionSuccess = true;
 
-      // If inside Telegram WebApp, automatically close after a brief delay so user returns to chat
+      // Automatically close Mini App after brief delay to return manager to chat
       if (tg && typeof tg.close === 'function') {
         setTimeout(() => {
           try {
             tg.close();
           } catch (e) {
-            console.warn('Could not close Telegram WebApp window:', e);
+            console.warn('Telegram close failed:', e);
           }
-        }, 1800);
+        }, 1000);
       }
     },
 
+    quickSelect(product) {
+      this.confirmDispenserSelection(product);
+    },
+
     copyPayload() {
-      if (!this.submittedOrderData) return;
-      const text = JSON.stringify(this.submittedOrderData, null, 2);
+      if (!this.submittedSelectionData) return;
+      const text = JSON.stringify(this.submittedSelectionData, null, 2);
       navigator.clipboard.writeText(text).then(() => {
         this.copiedPayload = true;
         setTimeout(() => { this.copiedPayload = false; }, 2000);
