@@ -60,12 +60,13 @@ sudo docker compose restart
 
 # 6. Re-register Telegram Webhook and Menu Button
 echo "📲 [6/6] Привязка активного вебхука n8n в Telegram..."
-SECRET_TOKEN="sHnoGT842oAJacFu_Telegram_Trigger"
+SECRET_TOKEN="sHnoGT842oAJacFu_ca983051-1e1e-47a2-841b-a879fe4a7354"
 WEBHOOK_TARGET="$TUNNEL_URL/webhook/6203b22d-7f6e-4731-b245-0f6a913edfa1/webhook"
 
-curl -s -F "url=$WEBHOOK_TARGET" \
+WEBHOOK_RES=$(curl -s -F "url=$WEBHOOK_TARGET" \
      -F "secret_token=$SECRET_TOKEN" \
-     "https://api.telegram.org/bot8896150273:AAE9PdQcenxCZVXgBhISBNwf0Nk3Zwr6yeY/setWebhook"
+     "https://api.telegram.org/bot8896150273:AAE9PdQcenxCZVXgBhISBNwf0Nk3Zwr6yeY/setWebhook")
+echo "Результат привязки вебхука: $WEBHOOK_RES"
 
 curl -s -X POST "https://api.telegram.org/bot8896150273:AAE9PdQcenxCZVXgBhISBNwf0Nk3Zwr6yeY/setChatMenuButton" \
      -H "Content-Type: application/json" \
