@@ -16,6 +16,9 @@ git reset --hard origin/manager-only-mode
 # 2. Setup real .env
 echo "⚙️ [2/6] Запись боевых переменных окружения..."
 VLM_KEY="${1:-}"
+if [ -z "$VLM_KEY" ]; then
+    VLM_KEY=$(grep 'VLM_API_KEY=' .env 2>/dev/null | cut -d '=' -f2- || true)
+fi
 
 cat << EOF > .env
 TELEGRAM_BOT_TOKEN=8896150273:AAE9PdQcenxCZVXgBhISBNwf0Nk3Zwr6yeY
@@ -55,11 +58,16 @@ fi
 echo "WEBHOOK_URL=$TUNNEL_URL" >> .env
 echo "URL туннеля: $TUNNEL_URL"
 
-# 5. Restart containers
-echo "🔄 [5/6] Перезапуск контейнеров..."
+# 5. Restart n8n container and publish workflow
+echo "🔄 [5/6] Перезапуск контейнеров и публикация воркфлоу..."
 sudo docker compose restart
 
-echo "⏳ Ожидание полной инициализации n8n..."
+echo "⏳ Ожидание полной инициализации n8n (15 сек)..."
+sleep 15
+
+# Publish workflow in n8n
+sudo docker exec -u node tork_n8n n8n publish:workflow --id=sHnoGT842oAJacFu || true
+sudo docker restart tork_n8n
 sleep 10
 
 # 6. Set Telegram Webhook and Menu Button
