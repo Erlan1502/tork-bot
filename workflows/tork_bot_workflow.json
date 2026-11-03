@@ -21,7 +21,7 @@
       "webhookId": "6203b22d-7f6e-4731-b245-0f6a913edfa1",
       "credentials": {
         "telegramApi": {
-          "id": "ildUvXJDz5GOalvb",
+          "id": "ASiKmvQz4bYnK32G",
           "name": "Telegram account"
         }
       }
@@ -94,7 +94,7 @@
     },
     {
       "parameters": {
-        "chatId": "={{ $json.message?.chat?.id }}",
+        "chatId": "={{ $('Telegram Trigger').first()?.json?.message?.chat?.id || $json.message?.chat?.id }}",
         "text": "Для точного подбора и визуализации, пожалуйста, отправьте обычную фотографию стены и раковины санузла на расстоянии 1.5–2 метра.",
         "additionalFields": {
           "appendAttribution": false
@@ -111,7 +111,7 @@
       "webhookId": "1b4061ee-533e-4e63-bcff-35fa59adec9a",
       "credentials": {
         "telegramApi": {
-          "id": "ildUvXJDz5GOalvb",
+          "id": "ASiKmvQz4bYnK32G",
           "name": "Telegram account"
         }
       }
@@ -119,7 +119,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO user_sessions_leads (tg_user_id, tg_username, client_name, distributor_id, current_step, selected_sku) VALUES ({{ $('Telegram Trigger').item.json.message ? $('Telegram Trigger').item.json.message.from.id : $('Telegram Trigger').item.json.callback_query.from.id }}, '{{ ($('Telegram Trigger').item.json.message ? $('Telegram Trigger').item.json.message.from.username : $('Telegram Trigger').item.json.callback_query.from.username) || '' }}', '{{ ($('Telegram Trigger').item.json.message ? $('Telegram Trigger').item.json.message.from.first_name : $('Telegram Trigger').item.json.callback_query.from.first_name) || 'Менеджер' }}', {{ $env.DEFAULT_DISTRIBUTOR_ID || 1 }}, 'MANAGER_MODE', '551000') ON CONFLICT (tg_user_id) DO UPDATE SET tg_username = EXCLUDED.tg_username, client_name = EXCLUDED.client_name, current_step = 'MANAGER_MODE' RETURNING *;",
+        "query": "INSERT INTO user_sessions_leads (tg_user_id, tg_username, client_name, distributor_id, current_step, selected_sku) VALUES ({{ $('Telegram Trigger').first()?.json?.message ? $('Telegram Trigger').first()?.json?.message?.from?.id : $('Telegram Trigger').first()?.json?.callback_query?.from?.id }}, '{{ ($('Telegram Trigger').first()?.json?.message ? $('Telegram Trigger').first()?.json?.message?.from?.username : $('Telegram Trigger').first()?.json?.callback_query?.from?.username) || '' }}', '{{ ($('Telegram Trigger').first()?.json?.message ? $('Telegram Trigger').first()?.json?.message?.from?.first_name : $('Telegram Trigger').first()?.json?.callback_query?.from?.first_name) || 'Менеджер' }}', {{ $env.DEFAULT_DISTRIBUTOR_ID || 1 }}, 'MANAGER_MODE', '551000') ON CONFLICT (tg_user_id) DO UPDATE SET tg_username = EXCLUDED.tg_username, client_name = EXCLUDED.client_name, current_step = 'MANAGER_MODE' RETURNING *;",
         "options": {}
       },
       "id": "edab576e-e554-43c1-b3ca-7c90d20074df",
@@ -275,7 +275,7 @@
       ],
       "credentials": {
         "telegramApi": {
-          "id": "ildUvXJDz5GOalvb",
+          "id": "ASiKmvQz4bYnK32G",
           "name": "Telegram account"
         }
       }
@@ -328,7 +328,7 @@
     },
     {
       "parameters": {
-        "chatId": "={{ $json.auth ? $json.auth.chat_id : ($json.message?.chat?.id || $json.callback_query?.message?.chat?.id) }}",
+        "chatId": "={{ $('Check Manager Whitelist').first()?.json?.auth?.chat_id || $json.auth?.chat_id || $('Telegram Trigger').first()?.json?.message?.chat?.id }}",
         "text": "⛔️ *Доступ ограничен (Manager-Only Mode)*\n\nЭтот бот предназначен исключительно для авторизованных менеджеров и сотрудников Tork.\n\n👤 *Ваш профиль:*\n• Имя: {{ $json.auth ? $json.auth.user_name : 'Сотрудник' }}\n• Telegram ID: `{{ $json.auth ? $json.auth.user_id : 'Не определен' }}`\n\nДля получения доступа передайте ваш Telegram ID администратору.",
         "additionalFields": {
           "appendAttribution": false,
@@ -345,7 +345,7 @@
       "typeVersion": 1.2,
       "credentials": {
         "telegramApi": {
-          "id": "ildUvXJDz5GOalvb",
+          "id": "ASiKmvQz4bYnK32G",
           "name": "Telegram account"
         }
       }
@@ -422,7 +422,7 @@
       "typeVersion": 1.2,
       "credentials": {
         "telegramApi": {
-          "id": "ildUvXJDz5GOalvb",
+          "id": "ASiKmvQz4bYnK32G",
           "name": "Telegram account"
         }
       }
@@ -430,7 +430,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT u.tg_user_id, COALESCE(u.selected_sku, '551000') as selected_sku, COALESCE(p.name, 'Tork Matic® диспенсер полотенец H1') as dispenser_name, COALESCE(p.system_code, 'H1') as system_code, COALESCE(p.color, 'white') as color, COALESCE(p.dimensions_cm, '{\"w\": 33.7, \"h\": 37.2, \"d\": 20.6}'::jsonb) as dimensions_cm, COALESCE(p.category, 'dispenser') as category FROM user_sessions_leads u LEFT JOIN products p ON p.sku = COALESCE(u.selected_sku, '551000') WHERE u.tg_user_id = {{ $('Telegram Trigger').item.json.message ? $('Telegram Trigger').item.json.message.from.id : $('Telegram Trigger').item.json.callback_query.from.id }};",
+        "query": "SELECT u.tg_user_id, COALESCE(u.selected_sku, '551000') as selected_sku, COALESCE(p.name, 'Tork Matic® диспенсер полотенец H1') as dispenser_name, COALESCE(p.system_code, 'H1') as system_code, COALESCE(p.color, 'white') as color, COALESCE(p.dimensions_cm, '{\"w\": 33.7, \"h\": 37.2, \"d\": 20.6}'::jsonb) as dimensions_cm, COALESCE(p.category, 'dispenser') as category FROM user_sessions_leads u LEFT JOIN products p ON p.sku = COALESCE(u.selected_sku, '551000') WHERE u.tg_user_id = {{ $('Telegram Trigger').first()?.json?.message ? $('Telegram Trigger').first()?.json?.message?.from?.id : ($('Telegram Trigger').first()?.json?.callback_query ? $('Telegram Trigger').first()?.json?.callback_query?.from?.id : $json.tg_user_id) }};",
         "options": {}
       },
       "id": "node-fetch-manager-selection",
@@ -516,15 +516,15 @@
       "typeVersion": 1.2,
       "credentials": {
         "telegramApi": {
-          "id": "ildUvXJDz5GOalvb",
+          "id": "ASiKmvQz4bYnK32G",
           "name": "Telegram account"
         }
       }
     },
     {
       "parameters": {
-        "chatId": "={{ $json.auth ? $json.auth.chat_id : ($json.message?.chat?.id || $json.callback_query?.message?.chat?.id) }}",
-        "text": "={{ '👋 <b>Здравствуйте, ' + ($json.auth?.user_name || 'Менеджер') + '!</b>\\n\\n' + 'Добро пожаловать в <b>Tork Visualizer (Manager-Only Mode)</b>.\\n' + 'Этот инструмент предназначен для быстрого создания фотомонтажа и визуализации диспенсеров Tork в интерьерах клиентов.\\n\\n' + '📦 В каталоге доступно <b>165 товаров Tork</b> (83 настенных диспенсера для примерки).\\n\\n' + '🚀 <b>Как работать:</b>\\n' + '1. Откройте <b>«✨ Каталог диспенсеров»</b> по кнопке ниже и выберите нужный артикул.\\n' + '2. Отправьте в этот чат фотографию стены или санузла клиента.\\n' + '3. Нейросеть смонтирует диспенсер на стену с сохранением масштаба и естественных теней!' }}",
+        "chatId": "={{ $('Check Manager Whitelist').first()?.json?.auth?.chat_id || $json.tg_user_id || $('Telegram Trigger').first()?.json?.message?.chat?.id || $('Telegram Trigger').first()?.json?.callback_query?.message?.chat?.id }}",
+        "text": "={{ '👋 <b>Здравствуйте, ' + ($('Check Manager Whitelist').first()?.json?.auth?.user_name || $json.client_name || 'Менеджер') + '!</b>\\n\\n' + 'Добро пожаловать в <b>Tork Visualizer (Manager-Only Mode)</b>.\\n' + 'Этот инструмент предназначен для быстрого создания фотомонтажа и визуализации диспенсеров Tork в интерьерах клиентов.\\n\\n' + '📦 В каталоге доступно <b>165 товаров Tork</b> (83 настенных диспенсера для примерки).\\n\\n' + '🚀 <b>Как работать:</b>\\n' + '1. Откройте <b>«✨ Каталог диспенсеров»</b> по кнопке ниже и выберите нужный артикул.\\n' + '2. Отправьте в этот чат фотографию стены или санузла клиента.\\n' + '3. Нейросеть смонтирует диспенсер на стену с сохранением масштаба и естественных теней!' }}",
         "replyMarkup": "inlineKeyboard",
         "inlineKeyboard": {
           "rows": [
@@ -559,7 +559,7 @@
       "typeVersion": 1.2,
       "credentials": {
         "telegramApi": {
-          "id": "ildUvXJDz5GOalvb",
+          "id": "ASiKmvQz4bYnK32G",
           "name": "Telegram account"
         }
       }
