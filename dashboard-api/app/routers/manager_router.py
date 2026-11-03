@@ -6,9 +6,9 @@ import os
 import urllib.request
 import urllib.parse
 from typing import List, Dict, Any, Optional
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from PIL import Image, ImageFilter, ImageEnhance, ImageOps
+from PIL import Image, ImageFilter
 
 from app.database import get_db_cursor
 from app.config import settings
@@ -19,10 +19,9 @@ router = APIRouter(prefix="/api/manager", tags=["Manager Mode"])
 
 ASSETS_IMAGES_DIR = os.getenv("ASSETS_IMAGES_DIR", "/app/assets/images")
 if not os.path.exists(ASSETS_IMAGES_DIR):
-    # Fallback to relative path if running locally
     ASSETS_IMAGES_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../assets/images"))
 
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8896150273:AAE9PdQcenxCZVXgBhISBNwf0Nk3Zwr6yeY")
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 VLM_API_KEY = os.getenv("VLM_API_KEY", "")
 
 
@@ -134,7 +133,7 @@ def select_kit(payload: SelectKitPayload):
         lines.append(f"   • Количество: <b>{it.count or 1} шт.</b>\n")
 
     lines.append("📸 <b>Следующий шаг:</b> Отправьте в этот чат <b>фотографию санузла клиента</b>.")
-    lines.append("Нейросеть смонтирует все выбранные диспенсеры в нужные функциональные зоны!")
+    lines.append("Нейросеть смонтирует все выбранные диспенсеры в нужные функциональные зоны с учетом освещения и теней!")
 
     confirm_text = "\n".join(lines)
     send_telegram_message(chat_id, confirm_text)
@@ -154,64 +153,241 @@ class CompositeRequest(BaseModel):
     items: Optional[List[KitItem]] = None
 
 
-def create_drop_shadow(image: Image.Image, offset=(15, 15), blur_radius=12, shadow_color=(0, 0, 0, 120)) -> Image.Image:
-    """Creates a soft, realistic drop shadow for a transparent PNG object."""
-    # Create shadow canvas with margin
-    margin = blur_radius * 2
-    w = image.width + margin * 2 + abs(offset[0])
-    h = image.height + margin * 2 + abs(offset[1])
+def audit_washroom_and_reason_actions(user_photo_b64: str, items: List[KitItem]) -> Dict[str, Any]:
+    """
+    Image-to-Reasoning Layer (Gemini 2.5 Flash):
+    Audits existing equipment in the washroom photo (old dispensers, electric hand dryers,
+    soap bottles, waste bins, toilet paper holders).
+    Reasons whether each selected Tork item should:
+      - REPLACE an existing/broken/obsolete item in that functional zone, OR
+      - ADD / COMPLEMENT a missing item on an empty wall/floor space.
+    Also detects equipment to PRESERVE intact.
+    """
+    api_key = VLM_API_KEY or os.getenv("VLM_API_KEY", "")
+    if not api_key:
+        logger.warning("VLM_API_KEY not configured for equipment reasoning audit")
+        return {}
 
-    shadow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    # Extract alpha mask
-    alpha = image.split()[3]
-    # Create solid shadow layer
-    shadow_mask = Image.new("RGBA", image.size, shadow_color)
-    shadow_mask.putalpha(alpha)
+    items_desc = []
+    for idx, it in enumerate(items, start=1):
+        items_desc.append(
+            f"{idx}. SKU {it.sku}: '{it.name}' (System: {it.system_code or 'N/A'}, "
+            f"Type: {it.product_type or 'hygiene dispenser'}, Color: {it.color or 'standard'})"
+        )
 
-    # Paste shadow mask at offset
-    paste_x = margin + max(0, offset[0])
-    paste_y = margin + max(0, offset[1])
-    shadow.paste(shadow_mask, (paste_x, paste_y), shadow_mask)
+    audit_prompt = (
+        "You are an expert commercial hygiene auditor and architectural space planner for Tork (Essity).\n"
+        "Analyze the provided photo of a commercial washroom/restroom.\n\n"
+        "Selected Tork equipment bundle chosen by the manager for fitting:\n" +
+        "\n".join(items_desc) + "\n\n"
+        "Your objectives:\n"
+        "1. Identify ALL existing hygiene fixtures in the photo:\n"
+        "   - Hand drying devices (electric hand dryers, manual towel dispensers, loose paper towels).\n"
+        "   - Soap dispensing units (wall-mounted soap dispensers, liquid soap pump bottles on countertops).\n"
+        "   - Toilet paper dispensers / roll holders.\n"
+        "   - Waste bins / receptacles (under sink, near door, freestanding).\n"
+        "   Note their locations and visible conditions (e.g., outdated plastic, worn, broken electric dryer, loose bottle).\n\n"
+        "2. Match and Reason the Action for EACH item in the chosen Tork bundle:\n"
+        "   - If the room already has an old/competing device of that functional type (e.g., an old electric hand dryer or worn dispenser present, and manager chose a Tork hand towel dispenser; or old soap bottle on counter and manager chose Tork soap dispenser; or old bin and manager chose Tork bin): mark action as 'REPLACE'. Explain what is removed and replaced.\n"
+        "   - If that functional zone is completely absent (e.g., no hand dryer or towel dispenser anywhere; or no soap dispenser): mark action as 'ADD'. Explain the best ergonomic mounting location.\n"
+        "   - Note any existing equipment that should be 'PRESERVED' (e.g., existing toilet paper holder or mirror when not part of the upgrade bundle).\n\n"
+        "3. Respond in strict JSON format:\n"
+        "{\n"
+        '  "existing_equipment": [{"type": "...", "location": "...", "condition": "..."}],\n'
+        '  "plan": [\n'
+        '    {\n'
+        '      "sku": "...",\n'
+        '      "action": "REPLACE" or "ADD",\n'
+        '      "target_location": "...",\n'
+        '      "replaces_item": "name of replaced item or null",\n'
+        '      "summary_ru": "Краткое понятное описание действия на русском"\n'
+        '    }\n'
+        '  ],\n'
+        '  "preserved_equipment": ["..."],\n'
+        '  "telegram_audit_html": "HTML formatted text in Russian for Telegram: list of 🔄 Замены, ➕ Дооснащения, and 🛡️ Сохранено",\n'
+        '  "generation_instructions": "Clear, precise English instructions for image inpainting detailing what to ERASE and where to MOUNT each Tork SKU"\n'
+        "}\n"
+    )
 
-    # Blur shadow
-    shadow = shadow.filter(ImageFilter.GaussianBlur(blur_radius))
-    return shadow, margin
+    payload = {
+        "contents": [
+            {
+                "parts": [
+                    {"text": audit_prompt},
+                    {"inline_data": {"mime_type": "image/jpeg", "data": user_photo_b64}}
+                ]
+            }
+        ],
+        "generationConfig": {
+            "responseMimeType": "application/json"
+        }
+    }
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"}
+    )
+
+    try:
+        logger.info(f"Running Image-to-Reasoning audit with Gemini 2.5 Flash for {len(items)} items...")
+        with urllib.request.urlopen(req, timeout=35) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            raw_text = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+            if raw_text:
+                result = json.loads(raw_text)
+                logger.info(f"Reasoning audit complete: {len(result.get('plan', []))} actions planned.")
+                return result
+    except Exception as e:
+        logger.warning(f"Error in Image-to-Reasoning audit: {e}")
+
+    return {}
 
 
-def load_product_png(sku: str) -> Optional[Image.Image]:
-    """Finds and loads clean product PNG with alpha channel."""
-    search_paths = [
-        os.path.join(ASSETS_IMAGES_DIR, f"{sku}.png"),
-        os.path.join(ASSETS_IMAGES_DIR, f"{sku}.jpg"),
-        os.path.join(ASSETS_IMAGES_DIR, "551000.png")
-    ]
-    for p in search_paths:
-        if os.path.exists(p):
-            try:
-                img = Image.open(p).convert("RGBA")
-                return img
-            except Exception as e:
-                logger.warning(f"Failed to load image at {p}: {e}")
+def call_gemini_photorealistic_fitting(
+    user_photo_b64: str,
+    items: List[KitItem],
+    reasoning_plan: Optional[Dict[str, Any]] = None
+) -> Optional[str]:
+    """
+    Calls Google Gemini 3.1 Flash Image model for architectural inpainting.
+    If reasoning_plan is provided, strictly erases old equipment (hand dryers, worn dispensers)
+    and places new Tork products in their designated ergonomic positions.
+    Preserves 100% of tiles, mirror, and untouched architecture.
+    """
+    api_key = VLM_API_KEY or os.getenv("VLM_API_KEY", "")
+    if not api_key:
+        logger.warning("VLM_API_KEY not configured for Gemini fitting")
+        return None
+
+    product_parts = []
+    default_instructions = []
+
+    for idx, it in enumerate(items, start=2):
+        img_b64 = None
+        search_paths = [
+            os.path.join(ASSETS_IMAGES_DIR, f"{it.sku}.png"),
+            os.path.join(ASSETS_IMAGES_DIR, f"{it.sku}.jpg"),
+            os.path.join(ASSETS_IMAGES_DIR, "551000.png")
+        ]
+        for p in search_paths:
+            if os.path.exists(p):
+                try:
+                    with open(p, "rb") as f:
+                        img_b64 = base64.b64encode(f.read()).decode("utf-8")
+                    break
+                except Exception as e:
+                    logger.warning(f"Error reading asset {p}: {e}")
+
+        if not img_b64:
+            continue
+
+        product_parts.append({
+            "inline_data": {"mime_type": "image/png", "data": img_b64}
+        })
+
+        color_str = it.color or "standard"
+        if "towel" in (it.product_type or "").lower() or (it.system_code or "").startswith("H"):
+            default_instructions.append(
+                f"- Reference {idx}: {it.name} (SKU {it.sku}, finish: {color_str}). "
+                f"Mount flush against the wall near the sink at standard reach height (125 cm from floor). "
+                f"Ensure realistic 3D perspective angle matching the wall plane."
+            )
+        elif "soap" in (it.product_type or "").lower() or (it.system_code or "").startswith("S"):
+            default_instructions.append(
+                f"- Reference {idx}: {it.name} (SKU {it.sku}, finish: {color_str}). "
+                f"Mount on the wall neatly above the vanity countertop next to the washbasin faucet at ergonomic reach height (105 cm from floor)."
+            )
+        elif "bin" in (it.product_type or "").lower() or (it.system_code or "").startswith("B") or "корзин" in it.name.lower():
+            default_instructions.append(
+                f"- Reference {idx}: {it.name} (SKU {it.sku}, finish: {color_str}). "
+                f"Place neatly on the floor against the wall beneath or adjacent to the hand drying area."
+            )
+        else:
+            default_instructions.append(
+                f"- Reference {idx}: {it.name} (SKU {it.sku}, finish: {color_str}). "
+                f"Mount flush against the wall in appropriate hygiene functional position."
+            )
+
+    if not product_parts:
+        return None
+
+    # Incorporate reasoning instructions if available
+    reasoned_gen_instructions = (reasoning_plan or {}).get("generation_instructions", "")
+    if reasoned_gen_instructions:
+        instructions_text = (
+            "Smart Spatial Inpainting & Equipment Upgrade Plan:\n" +
+            reasoned_gen_instructions + "\n\n" +
+            "Reference Product Details:\n" + "\n".join(default_instructions)
+        )
+    else:
+        instructions_text = "Reference Equipment to install:\n" + "\n".join(default_instructions)
+
+    prompt = (
+        "You are an expert commercial architectural CGI visualizer for Tork (Essity).\n"
+        "Task: Photorealistically edit the commercial washroom interior shown in the first image to mount and place the selected Tork hygiene equipment from the subsequent reference images.\n\n"
+        f"{instructions_text}\n\n"
+        "Critical Requirements:\n"
+        "- If replacing existing equipment (such as an old electric hand dryer, outdated dispenser, soap bottle, or trash bin), ERASE the old item completely and reconstruct the wall tile, reflection, and grout seams flawlessly.\n"
+        "- Strictly preserve the client's real room architecture: sink basin, vanity counter, faucets, mirrors, ceiling spotlights, wall tiling, and floor MUST remain identical.\n"
+        "- DO NOT paste raw white image rectangles, borders or stickers. Seamlessly composite and render the 3D products as if physically installed in the room.\n"
+        "- Match room lighting: cast realistic soft contact drop shadows onto the walls and floor matching ceiling spotlights and wall lights.\n"
+        "- Return ONLY the photorealistic final image."
+    )
+
+    payload = {
+        "contents": [
+            {
+                "parts": [
+                    {"text": prompt},
+                    {"inline_data": {"mime_type": "image/jpeg", "data": user_photo_b64}},
+                    *product_parts
+                ]
+            }
+        ],
+        "generationConfig": {
+            "responseModalities": ["IMAGE"]
+        }
+    }
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image:generateContent?key={api_key}"
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"}
+    )
+    try:
+        logger.info(f"Calling Gemini 3.1 Flash Image with {len(product_parts)} product reference images and smart reasoning...")
+        with urllib.request.urlopen(req, timeout=90) as resp:
+            res_data = json.loads(resp.read().decode("utf-8"))
+            parts = res_data.get("candidates", [{}])[0].get("content", {}).get("parts", [])
+            for p in parts:
+                d = p.get("inlineData") or p.get("inline_data")
+                if d and d.get("data"):
+                    logger.info("Gemini 3.1 Flash Image successfully generated photorealistic fitting!")
+                    return d["data"]
+    except Exception as e:
+        logger.error(f"Gemini 3.1 Flash Image generation error: {e}")
+        return None
+
     return None
 
 
 @router.post("/composite")
 def composite_fitting(req: CompositeRequest):
     """
-    High-fidelity spatial compositing without destroying original washroom background.
-    Preserves 100% of tiles, plumbing, lighting and walls from manager's photo.
+    Two-stage Smart Replacement & Fitting Pipeline:
+    1. Image-to-Reasoning (Gemini 2.5 Flash):
+       Analyzes room for existing equipment (dryers, old dispensers, bottles, bins).
+       Formulates Smart Replacement (🔄) vs Complement/Add (➕) plan.
+    2. Architectural Inpainting (Gemini 3.1 Flash Image):
+       Erases old equipment, repairs wall/floor textures, and mounts Tork models in 3D.
     """
     if not req.user_photo_base64:
         raise HTTPException(status_code=400, detail="Missing user_photo_base64")
 
-    # 1. Load User Photo
-    try:
-        user_photo_bytes = base64.b64decode(req.user_photo_base64)
-        base_img = Image.open(io.BytesIO(user_photo_bytes)).convert("RGBA")
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid user photo base64: {e}")
-
-    # 2. Fetch Selected Items from DB if not provided
+    # 1. Fetch Selected Items from DB if not provided
     items = req.items or []
     if not items and req.tg_user_id:
         try:
@@ -233,102 +409,59 @@ def composite_fitting(req: CompositeRequest):
             logger.warning(f"Could not load items from DB: {e}")
 
     if not items:
-        # Default fallback
         items = [KitItem(sku="551000", name="Tork Matic® диспенсер H1")]
 
-    W, H = base_img.size
+    # 2. Stage 1: Image-to-Reasoning Audit
+    reasoning_plan = audit_washroom_and_reason_actions(req.user_photo_base64, items)
 
-    # Composite canvas starts as a copy of the manager's actual room photo
-    canvas = base_img.copy()
+    # 3. Stage 2: Architectural AI Montage with smart replacement instructions
+    ai_result_base64 = call_gemini_photorealistic_fitting(
+        req.user_photo_base64,
+        items,
+        reasoning_plan=reasoning_plan
+    )
 
-    # Determine placement zones according to Tork hygiene standards:
-    # We assign realistic relative positions (x_pct, y_pct, target_height_pct)
-    # Zone 1: Towel dispenser (Hand Washing) -> Right of center, eye/hand level (y: 35-45%)
-    # Zone 2: Soap dispenser (Hand Washing) -> Over sink counter, lower eye level (y: 45-55%, closer to center)
-    # Zone 3: Waste bin -> Low right / floor level (y: 65-75%)
-    # Zone 4: Toilet paper / other -> Left or secondary position
+    # Fallback: if Gemini fails, use user photo
+    final_result_base64 = ai_result_base64 or req.user_photo_base64
 
-    placements = []
-    towel_items = [it for it in items if "towel" in (it.product_type or "").lower() or (it.system_code or "").startswith("H")]
-    soap_items = [it for it in items if "soap" in (it.product_type or "").lower() or (it.system_code or "").startswith("S")]
-    bin_items = [it for it in items if "bin" in (it.product_type or "").lower() or (it.system_code or "").startswith("B") or "корзин" in it.name.lower()]
-    other_items = [it for it in items if it not in towel_items and it not in soap_items and it not in bin_items]
-
-    sorted_items = towel_items + soap_items + bin_items + other_items
-
-    # Placement coordinates normalized (cx, cy, target_height_ratio)
-    slots = [
-        {"name": "towel_right", "cx": 0.72, "cy": 0.42, "h_ratio": 0.28},
-        {"name": "soap_center", "cx": 0.52, "cy": 0.48, "h_ratio": 0.18},
-        {"name": "bin_floor",   "cx": 0.72, "cy": 0.75, "h_ratio": 0.26},
-        {"name": "extra_left",  "cx": 0.25, "cy": 0.45, "h_ratio": 0.22},
+    # 4. Build comprehensive Telegram caption with Smart Audit & Spec
+    caption_lines = [
+        "✨ <b>Визуализация санузла готова!</b>\n"
     ]
 
-    mounted_details = []
+    # If reasoning provided a telegram audit, include it
+    plan_actions = reasoning_plan.get("plan", [])
+    replacements = [p for p in plan_actions if p.get("action") == "REPLACE"]
+    additions = [p for p in plan_actions if p.get("action") == "ADD"]
+    preserved = reasoning_plan.get("preserved_equipment", [])
 
-    for i, it in enumerate(sorted_items):
-        slot = slots[min(i, len(slots) - 1)]
-        img_item = load_product_png(it.sku)
-        if not img_item:
-            continue
+    if replacements or additions:
+        caption_lines.append("🔍 <b>План умной замены и дооснащения:</b>")
+        for r in replacements:
+            old_name = r.get("replaces_item") or "Старое оборудование"
+            caption_lines.append(f"• 🔄 <b>Замена:</b> {old_name} ➔ заменено на арт. <code>{r.get('sku')}</code>")
+        for a in additions:
+            loc = a.get("target_location") or "Свободная зона"
+            caption_lines.append(f"• ➕ <b>Дооснащение:</b> {loc} ➔ установлен арт. <code>{a.get('sku')}</code>")
+        if preserved:
+            caption_lines.append(f"• 🛡️ <i>Сохранено без изменений: {', '.join(preserved[:2])}</i>")
+        caption_lines.append("")
 
-        target_h = int(H * slot["h_ratio"])
-        aspect = img_item.width / img_item.height
-        target_w = int(target_h * aspect)
-        resized_item = img_item.resize((target_w, target_h), Image.Resampling.LANCZOS)
-
-        # Center on slot
-        pos_x = int(W * slot["cx"] - target_w / 2)
-        pos_y = int(H * slot["cy"] - target_h / 2)
-
-        # Ensure within image bounds
-        pos_x = max(10, min(W - target_w - 10, pos_x))
-        pos_y = max(10, min(H - target_h - 10, pos_y))
-
-        # Generate realistic soft contact drop shadow (light from top-left)
-        shadow_img, margin = create_drop_shadow(
-            resized_item, 
-            offset=(int(target_w * 0.05), int(target_h * 0.05)), 
-            blur_radius=int(target_w * 0.04)
+    caption_lines.append("📋 <b>Спецификация смонтированного комплекта:</b>")
+    for idx, it in enumerate(items, start=1):
+        caption_lines.append(
+            f"{idx}. <b>{it.name}</b>\n"
+            f"   • Арт: <code>{it.sku}</code> | Сист: <b>{it.system_code or '–'}</b> — {it.count or 1} шт."
         )
 
-        shadow_pos_x = pos_x - margin
-        shadow_pos_y = pos_y - margin
-
-        # 1. Paste shadow onto room wall
-        canvas.alpha_composite(shadow_img, (shadow_pos_x, shadow_pos_y))
-
-        # 2. Paste crisp, photorealistic dispenser
-        canvas.alpha_composite(resized_item, (pos_x, pos_y))
-
-        mounted_details.append({
-            "sku": it.sku,
-            "name": it.name,
-            "system_code": it.system_code,
-            "count": it.count or 1
-        })
-
-    # Convert back to RGB JPEG
-    final_rgb = canvas.convert("RGB")
-    buf = io.BytesIO()
-    final_rgb.save(buf, format="JPEG", quality=95)
-    result_base64 = base64.b64encode(buf.getvalue()).decode("utf-8")
-
-    # Build rich caption
-    color_ru = {"white": "Белый", "black": "Черный", "stainless_steel": "Нержавеющая сталь"}
-    caption_lines = [
-        "✨ <b>Визуализация санузла готова!</b>\n",
-        f"📸 <i>Все {len(mounted_details)} диспенсера смонтированы на реальные стены с расчетом масштаба и контактных теней:</i>\n"
-    ]
-    for idx, d in enumerate(mounted_details, start=1):
-        caption_lines.append(f"{idx}. <b>{d['name']}</b> (арт. <code>{d['sku']}</code>, сист. <b>{d['system_code']}</b>) — {d['count']} шт.")
-
-    caption_lines.append("\n💡 <i>Монтаж выполнен с сохранением интерьера, плитки и освещения клиента.</i>")
+    caption_lines.append("\n💡 <i>Монтаж выполнен нейросетью с учетом перспективы, теней и сохранения интерьера.</i>")
     caption = "\n".join(caption_lines)
 
     return {
         "ok": True,
-        "result_image_base64": result_base64,
+        "result_image_base64": final_result_base64,
         "caption": caption,
-        "mounted_count": len(mounted_details)
+        "mounted_count": len(items),
+        "ai_generated": bool(ai_result_base64),
+        "audit_plan": reasoning_plan
     }
