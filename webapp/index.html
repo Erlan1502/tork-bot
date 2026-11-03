@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Tork Visualizer — Выбор диспенсера</title>
+  <title>Tork Visualizer — Выбор диспенсеров и комплекта</title>
   
   <!-- Telegram WebApp SDK -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -34,7 +34,6 @@
   <link rel="stylesheet" href="style.css">
   
   <style>
-    /* Additional micro-adjustments for smooth UX */
     .line-clamp-2 {
       display: -webkit-box;
       -webkit-line-clamp: 2;
@@ -45,7 +44,7 @@
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col">
 
-  <div id="app" class="flex-1 flex flex-col max-w-xl mx-auto w-full relative pb-10">
+  <div id="app" class="flex-1 flex flex-col max-w-xl mx-auto w-full relative pb-24">
     
     <!-- HEADER -->
     <header class="glass-header text-white sticky top-0 z-30 shadow-md">
@@ -62,14 +61,23 @@
             </div>
             <div>
               <h1 class="text-sm font-bold tracking-tight text-white leading-none">Tork Visualizer & Fitting</h1>
-              <span class="text-[10px] text-sky-200 font-medium">Каталог диспенсеров • Manager Mode</span>
+              <span class="text-[10px] text-sky-200 font-medium">Каталог комплектов • Manager Mode</span>
             </div>
           </div>
 
-          <!-- Total Counter Badge -->
-          <div class="text-[11px] font-semibold bg-white/10 border border-white/20 text-sky-200 px-2.5 py-1 rounded-full">
-            165 товаров
-          </div>
+          <!-- Total Counter / Kit Trigger Badge -->
+          <button 
+            @click="toggleKitDrawer"
+            id="btn-header-kit-counter"
+            :class="[
+              'tap-effect text-[11px] font-semibold px-2.5 py-1 rounded-full transition flex items-center gap-1.5 shadow-xs',
+              totalKitCount > 0 
+                ? 'bg-sky-400 text-slate-900 font-bold ring-2 ring-white/50' 
+                : 'bg-white/10 border border-white/20 text-sky-200 hover:bg-white/20'
+            ]">
+            <span>📦 Комплект:</span>
+            <strong>{{ totalKitCount }} шт.</strong>
+          </button>
         </div>
 
         <!-- Search Input -->
@@ -122,43 +130,44 @@
           id="filter-dispenser"
           @click="selectCategory('dispenser')"
           :class="[
-            'tap-effect text-xs px-3 py-1.5 rounded-lg font-medium transition',
+            'tap-effect flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5',
             selectedCategory === 'dispenser' 
-              ? 'bg-tork text-white shadow-xs font-semibold' 
+              ? 'bg-tork text-white shadow-xs' 
               : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
           ]">
-          ✨ Диспенсеры <span class="opacity-75 text-[10px]">({{ zoneCounts.dispenser }})</span>
+          <span>✨ Диспенсеры</span>
+          <span class="text-[10px] px-1.5 py-0.2 rounded-full font-mono" :class="selectedCategory === 'dispenser' ? 'bg-sky-400/20 text-sky-200' : 'bg-slate-200 text-slate-500'">
+            {{ zoneCounts.dispenser }}
+          </span>
         </button>
 
         <button 
-          id="filter-all"
           @click="selectCategory('all')"
           :class="[
-            'tap-effect text-xs px-3 py-1.5 rounded-lg font-medium transition',
+            'tap-effect py-1.5 px-3 rounded-lg text-xs font-semibold transition',
             selectedCategory === 'all' 
-              ? 'bg-tork text-white shadow-xs font-semibold' 
+              ? 'bg-tork text-white shadow-xs' 
               : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
           ]">
-          Все <span class="opacity-75 text-[10px]">({{ zoneCounts.all }})</span>
+          Все ({{ zoneCounts.all }})
         </button>
 
         <button 
-          id="filter-refill"
           @click="selectCategory('refill')"
           :class="[
-            'tap-effect text-xs px-3 py-1.5 rounded-lg font-medium transition',
+            'tap-effect py-1.5 px-3 rounded-lg text-xs font-semibold transition',
             selectedCategory === 'refill' 
-              ? 'bg-tork text-white shadow-xs font-semibold' 
+              ? 'bg-tork text-white shadow-xs' 
               : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
           ]">
-          Расходники <span class="opacity-75 text-[10px]">({{ zoneCounts.refill }})</span>
+          Расходники ({{ zoneCounts.refill }})
         </button>
       </div>
     </div>
 
     <!-- SEARCH STATUS BANNER -->
     <div v-if="searchQuery" class="px-4 py-2 bg-sky-50 border-b border-sky-100 text-xs text-sky-900 flex items-center justify-between">
-      <span>Найдено по запросу «{{ searchQuery }}»: <strong>{{ filteredProducts.length }}</strong> товаров</span>
+      <span>Найдено по запросу «{{ searchQuery }}»: <strong>{{ filteredProducts.length }}</strong> SKU</span>
       <button @click="clearSearch" class="text-sky-600 hover:underline font-semibold">Сбросить</button>
     </div>
 
@@ -194,10 +203,20 @@
           :key="product.sku"
           :id="'product-' + product.sku"
           :class="[
-            'product-card bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200/80 flex flex-col justify-between shadow-xs relative overflow-hidden',
+            'product-card bg-white rounded-2xl p-2.5 sm:p-3 border flex flex-col justify-between shadow-xs relative overflow-hidden transition-all',
+            getItemCount(product.sku) > 0 ? 'border-sky-500 ring-2 ring-sky-300 bg-sky-50/20' : 'border-slate-200/80',
             preselectedSku === product.sku ? 'highlighted-product ring-2 ring-sky-400' : ''
           ]">
           
+          <!-- Selected Counter Badge (Top Left) -->
+          <span 
+            v-if="getItemCount(product.sku) > 0" 
+            :id="'badge-count-' + product.sku"
+            class="absolute top-1.5 left-1.5 z-10 bg-sky-500 text-white font-extrabold text-[10px] px-2 py-0.5 rounded-full shadow-xs flex items-center gap-1">
+            <span>✓</span>
+            <span>{{ getItemCount(product.sku) }} шт.</span>
+          </span>
+
           <!-- Image Section -->
           <div 
             @click="openProductModal(product)"
@@ -241,31 +260,155 @@
             </h2>
           </div>
 
-          <!-- Price & Action Button -->
+          <!-- Price & Stepper / Add Action Button -->
           <div class="pt-2 border-t border-slate-100 flex flex-col gap-1.5">
             <div class="text-xs sm:text-sm font-extrabold text-tork leading-none">
               {{ formatPrice(product.price) }}
             </div>
 
-            <!-- Action Button: Select for Fitting -->
+            <!-- If Not in Kit: Single Add Button -->
             <button 
+              v-if="getItemCount(product.sku) === 0"
               :id="'btn-select-' + product.sku"
-              @click="confirmDispenserSelection(product)"
-              :class="[
-                'tap-effect w-full font-semibold text-xs py-2 px-2 rounded-xl flex items-center justify-center gap-1.5 shadow-xs transition',
-                product.category === 'dispenser'
-                  ? 'bg-tork hover:bg-tork-dark active:bg-slate-900 text-white'
-                  : 'bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700'
-              ]">
-              <span v-if="product.category === 'dispenser'">✨ Примерить</span>
-              <span v-else>Выбрать SKU</span>
+              @click="addItemToKit(product)"
+              class="tap-effect w-full font-semibold text-xs py-2 px-2 rounded-xl flex items-center justify-center gap-1.5 shadow-xs bg-tork hover:bg-tork-dark active:bg-slate-900 text-white transition">
+              <span>+ В комплект</span>
             </button>
+
+            <!-- If in Kit: Intuitive Stepper [-] Count [+] -->
+            <div 
+              v-else 
+              class="flex items-center justify-between bg-sky-100 rounded-xl p-0.5 border border-sky-300">
+              <button 
+                :id="'btn-minus-' + product.sku"
+                @click="removeItemFromKit(product.sku)" 
+                class="tap-effect w-8 h-7 bg-white text-slate-700 font-bold rounded-lg flex items-center justify-center shadow-xs active:bg-slate-100">
+                –
+              </button>
+              <span class="text-xs font-extrabold text-sky-900">
+                {{ getItemCount(product.sku) }} шт.
+              </span>
+              <button 
+                :id="'btn-plus-' + product.sku"
+                @click="addItemToKit(product)" 
+                class="tap-effect w-8 h-7 bg-sky-500 text-white font-bold rounded-lg flex items-center justify-center shadow-xs active:bg-sky-600">
+                +
+              </button>
+            </div>
           </div>
         </div>
       </div>
     </main>
 
-    <!-- PRODUCT PREVIEW / SELECTION MODAL SHEET -->
+    <!-- STICKY BOTTOM FLOATING BAR (КОМПЛЕКТ) -->
+    <div 
+      v-if="totalKitCount > 0"
+      id="sticky-kit-bar"
+      class="fixed bottom-0 inset-x-0 z-40 max-w-xl mx-auto bg-slate-900/95 backdrop-blur-md text-white p-3 border-t border-sky-500/30 shadow-2xl flex items-center justify-between gap-3">
+      
+      <!-- Summary Trigger -->
+      <div class="flex items-center gap-2.5 cursor-pointer flex-1 min-w-0" @click="toggleKitDrawer">
+        <div class="w-10 h-10 rounded-xl bg-sky-500 text-white flex items-center justify-center text-base font-bold shadow-md shrink-0">
+          {{ totalKitCount }}
+        </div>
+        <div class="truncate">
+          <div class="text-xs font-bold text-white flex items-center gap-1.5 truncate">
+            <span>Выбран комплект</span>
+            <span class="text-[10px] bg-sky-400/20 text-sky-300 px-1.5 py-0.2 rounded font-mono">{{ totalKitItemsCount }} поз.</span>
+          </div>
+          <div class="text-[11px] text-slate-300 truncate">
+            {{ formatPrice(totalKitPrice) }} • <span class="text-sky-300 underline font-semibold">Просмотр</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Button -->
+      <button 
+        id="btn-submit-kit-bottom"
+        @click="submitKit"
+        :disabled="isSubmitting"
+        class="tap-effect bg-gradient-to-r from-sky-400 to-sky-500 hover:from-sky-300 hover:to-sky-400 active:from-sky-500 active:to-sky-600 text-slate-950 font-extrabold text-xs py-2.5 px-4 rounded-xl shadow-lg flex items-center gap-1.5 shrink-0">
+        <span v-if="isSubmitting" class="animate-spin">⏳</span>
+        <span v-else>📸 Примерить →</span>
+      </button>
+    </div>
+
+    <!-- KIT REVIEW DRAWER (ШТОРКА КОМПЛЕКТА) -->
+    <div 
+      v-if="showKitDrawer" 
+      id="kit-drawer-backdrop"
+      class="fixed inset-0 z-50 bg-slate-900/75 backdrop-blur-xs flex flex-col justify-end">
+      
+      <div 
+        id="kit-drawer-container"
+        class="bg-white rounded-t-3xl max-w-xl w-full mx-auto max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+        
+        <!-- Header -->
+        <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+          <div>
+            <h2 class="text-base font-bold text-slate-900 leading-tight">Комплект оборудования</h2>
+            <p class="text-[11px] text-slate-500">Выбрано {{ totalKitItemsCount }} поз. (всего {{ totalKitCount }} шт.)</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button 
+              @click="clearKit" 
+              class="text-xs text-red-600 hover:underline font-semibold px-2 py-1">
+              Очистить
+            </button>
+            <button 
+              @click="toggleKitDrawer" 
+              class="w-8 h-8 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-700 flex items-center justify-center font-bold text-sm">
+              ✕
+            </button>
+          </div>
+        </div>
+
+        <!-- Items List -->
+        <div class="flex-1 overflow-y-auto p-4 space-y-2.5">
+          <div 
+            v-for="item in kitItemsList" 
+            :key="item.product.sku"
+            class="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-200 gap-3">
+            <img 
+              :src="item.product.image_url" 
+              class="w-12 h-12 object-contain bg-white rounded-xl p-1 border border-slate-200 shrink-0">
+            <div class="flex-1 min-w-0">
+              <div class="text-[10px] font-mono text-slate-400">АРТ. {{ item.product.sku }} • {{ item.product.system_code }}</div>
+              <div class="text-xs font-bold text-slate-800 truncate">{{ item.product.name }}</div>
+              <div class="text-xs font-semibold text-tork">{{ formatPrice(item.product.price) }}</div>
+            </div>
+            <!-- Stepper -->
+            <div class="flex items-center gap-1.5 bg-white p-1 rounded-xl border border-slate-200 shrink-0">
+              <button 
+                @click="removeItemFromKit(item.product.sku)" 
+                class="w-7 h-7 bg-slate-100 text-slate-700 font-bold rounded-lg flex items-center justify-center">–</button>
+              <span class="w-6 text-center text-xs font-extrabold text-slate-900">{{ item.count }}</span>
+              <button 
+                @click="addItemToKit(item.product)" 
+                class="w-7 h-7 bg-sky-500 text-white font-bold rounded-lg flex items-center justify-center">+</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Drawer Footer -->
+        <div class="p-4 bg-slate-50 border-t border-slate-200 flex flex-col gap-2">
+          <div class="flex items-center justify-between text-xs font-bold px-1 text-slate-700">
+            <span>Итого по комплекту:</span>
+            <span class="text-sm font-extrabold text-tork">{{ formatPrice(totalKitPrice) }}</span>
+          </div>
+          <button 
+            id="btn-confirm-drawer-kit"
+            @click="submitKit"
+            :disabled="isSubmitting"
+            class="tap-effect w-full bg-tork hover:bg-tork-dark text-white font-bold py-3.5 rounded-2xl flex items-center justify-center gap-2 shadow-lg">
+            <span v-if="isSubmitting" class="animate-spin">⏳</span>
+            <span v-else>🚀 Сохранить комплект и перейти к фото</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRODUCT DETAIL PREVIEW MODAL -->
     <div 
       v-if="selectedProduct" 
       id="product-modal-backdrop"
@@ -273,15 +416,15 @@
       
       <div 
         id="product-modal-container"
-        class="animate-slide-up bg-white rounded-t-3xl max-w-xl w-full mx-auto max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
+        class="bg-white rounded-t-3xl max-w-xl w-full mx-auto max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
         
         <!-- Modal Header -->
         <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
           <div class="flex items-center gap-2">
             <span class="text-xl">✨</span>
             <div>
-              <h2 class="text-base font-bold text-slate-900 leading-tight">Примерка диспенсера</h2>
-              <p class="text-[11px] text-slate-500">Параметры для фотомонтажа</p>
+              <h2 class="text-base font-bold text-slate-900 leading-tight">Карточка товара</h2>
+              <p class="text-[11px] text-slate-500">Добавление в комплект оснащения</p>
             </div>
           </div>
           <button 
@@ -301,23 +444,10 @@
               ✓
             </div>
             <div>
-              <h3 class="text-lg font-bold text-slate-900">Диспенсер выбран!</h3>
+              <h3 class="text-lg font-bold text-slate-900">Комплект сохранен!</h3>
               <p class="text-xs text-slate-600 mt-1 max-w-xs mx-auto">
-                Артикул <strong>{{ selectedProduct.sku }}</strong> передан боту. Возвращаемся в чат для создания картинки...
+                Выбрано {{ totalKitItemsCount }} товаров. Возвращаемся в чат с ботом для отправки фото...
               </p>
-            </div>
-
-            <!-- Debug info for browser tests -->
-            <div v-if="submittedSelectionData" class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-left">
-              <div class="flex items-center justify-between mb-1.5">
-                <span class="text-[11px] font-bold text-slate-700">JSON Payload:</span>
-                <button 
-                  @click="copyPayload" 
-                  class="text-[10px] text-sky-600 hover:text-sky-800 font-semibold underline">
-                  {{ copiedPayload ? 'Скопировано!' : 'Копировать' }}
-                </button>
-              </div>
-              <pre class="text-[10px] font-mono bg-white p-2 rounded border border-slate-200 overflow-x-auto max-h-32">{{ JSON.stringify(submittedSelectionData, null, 2) }}</pre>
             </div>
 
             <button 
@@ -366,16 +496,18 @@
               {{ selectedProduct.description }}
             </div>
 
-            <!-- Action Confirm Button -->
-            <div class="pt-2">
+            <!-- Add to kit button / Quick Fitting -->
+            <div class="pt-2 flex flex-col gap-2">
               <button 
                 id="btn-confirm-selection"
                 @click="confirmDispenserSelection(selectedProduct)"
-                :disabled="isSubmitting"
                 class="tap-effect w-full bg-tork hover:bg-tork-dark text-white font-bold py-3.5 px-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg transition">
-                <span v-if="isSubmitting" class="animate-spin text-base">⏳</span>
-                <span v-else class="text-base">🚀</span>
-                <span>Выбрать этот диспенсер для примерки</span>
+                <span>📸 Примерить сразу</span>
+              </button>
+              <button 
+                @click="addItemToKit(selectedProduct); closeProductModal()"
+                class="tap-effect w-full bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition text-xs">
+                <span>+ Добавить в комплект</span>
               </button>
             </div>
           </template>

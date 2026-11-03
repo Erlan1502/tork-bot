@@ -47,10 +47,14 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-supersecret}
       - JWT_SECRET=${JWT_SECRET:-tork-b2b-dashboard-secret-jwt-key-2026}
       - GOTENBERG_URL=http://gotenberg:3000
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - VLM_API_KEY=${VLM_API_KEY}
+      - ALLOWED_TELEGRAM_IDS=${ALLOWED_TELEGRAM_IDS}
     volumes:
       - ./templates:/app/templates:ro
       - ./dashboard-api/app:/app/app
       - ./webapp:/app/webapp
+      - ./assets:/app/assets:ro
     networks:
       - tork_net
     depends_on:
@@ -116,6 +120,9 @@ services:
       - DEFAULT_DISTRIBUTOR_ID=${DEFAULT_DISTRIBUTOR_ID:-1}
       - MAX_RENDERS_PER_USER_DAY=${MAX_RENDERS_PER_USER_DAY:-5}
       - GOTENBERG_URL=http://gotenberg:3000
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - VLM_API_KEY=${VLM_API_KEY}
+      - ALLOWED_TELEGRAM_IDS=${ALLOWED_TELEGRAM_IDS}
     volumes:
       - n8n_data:/home/node/.n8n
       - ./assets:/data/assets

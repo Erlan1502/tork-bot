@@ -9,10 +9,12 @@ createApp({
       loading: true,
       error: null,
       selectedZone: 'zone_wash',
-      selectedCategory: 'dispenser', // Default to dispensers for fitting mode ('dispenser' | 'all' | 'refill')
+      selectedCategory: 'dispenser', // 'dispenser' | 'all' | 'refill'
       searchQuery: '',
       preselectedSku: null,
-      selectedProduct: null, // Product opened in detail preview modal
+      selectedProduct: null, // Modal preview
+      selectedKit: {}, // Keyed by sku: { product: {...}, count: 1 }
+      showKitDrawer: false,
       selectionSuccess: false,
       isSubmitting: false,
       submittedSelectionData: null,
@@ -62,6 +64,22 @@ createApp({
         if (this.selectedCategory === 'all') return true;
         return p.category === this.selectedCategory;
       });
+    },
+
+    kitItemsList() {
+      return Object.values(this.selectedKit).filter(item => item && item.count > 0);
+    },
+
+    totalKitCount() {
+      return this.kitItemsList.reduce((sum, item) => sum + (item.count || 0), 0);
+    },
+
+    totalKitItemsCount() {
+      return this.kitItemsList.length;
+    },
+
+    totalKitPrice() {
+      return this.kitItemsList.reduce((sum, item) => sum + ((item.product?.price || 0) * (item.count || 1)), 0);
     }
   },
 
@@ -119,7 +137,7 @@ createApp({
         if (item) {
           this.selectedZone = item.zone;
           this.selectedCategory = item.category || 'all';
-          this.selectedProduct = item;
+          this.addItemToKit(item);
           this.$nextTick(() => {
             const el = document.getElementById(`product-${this.preselectedSku}`);
             if (el) {
@@ -161,8 +179,53 @@ createApp({
       this.selectionSuccess = false;
     },
 
-    async confirmDispenserSelection(product) {
-      if (!product || this.isSubmitting) return;
+    getItemCount(sku) {
+      return this.selectedKit[sku]?.count || 0;
+    },
+
+    addItemToKit(product) {
+      if (!product || !product.sku) return;
+      const sku = product.sku;
+      if (!this.selectedKit[sku]) {
+        this.selectedKit[sku] = {
+          product: product,
+          count: 1
+        };
+      } else {
+        this.selectedKit[sku].count++;
+      }
+      this.haptic('impact');
+    },
+
+    removeItemFromKit(sku) {
+      if (!this.selectedKit[sku]) return;
+      if (this.selectedKit[sku].count > 1) {
+        this.selectedKit[sku].count--;
+      } else {
+        delete this.selectedKit[sku];
+      }
+      this.haptic('selection');
+    },
+
+    deleteFromKit(sku) {
+      if (this.selectedKit[sku]) {
+        delete this.selectedKit[sku];
+        this.haptic('impact');
+      }
+    },
+
+    clearKit() {
+      this.selectedKit = {};
+      this.haptic('notification');
+    },
+
+    toggleKitDrawer() {
+      this.showKitDrawer = !this.showKitDrawer;
+      this.haptic('selection');
+    },
+
+    async submitKit() {
+      if (this.kitItemsList.length === 0 || this.isSubmitting) return;
 
       this.isSubmitting = true;
       this.haptic('impact');
@@ -172,38 +235,57 @@ createApp({
       const tgChat = tg?.initDataUnsafe?.chat || {};
       const chatId = tgUser.id || tgChat.id || null;
 
+      const itemsPayload = this.kitItemsList.map(item => ({
+        sku: String(item.product.sku).trim(),
+        name: item.product.name,
+        category: item.product.category,
+        product_type: item.product.product_type,
+        system_code: item.product.system_code,
+        color: item.product.color,
+        price: item.product.price,
+        image_url: item.product.image_url,
+        count: item.count || 1,
+        dimensions_cm: item.product.dimensions_cm || null
+      }));
+
+      const primaryItem = itemsPayload[0];
+
+      const action = this.totalKitCount > 1 ? 'select_kit' : 'select_dispenser';
+
       const payload = {
-        action: 'select_dispenser',
-        event: 'select_dispenser',
-        sku: String(product.sku).trim(),
-        name: product.name,
-        category: product.category,
-        product_type: product.product_type,
-        system_code: product.system_code,
-        color: product.color,
-        price: product.price,
-        image_url: product.image_url,
+        action: action,
+        event: action,
         chat_id: chatId,
         tg_user_id: tgUser.id || null,
         tg_username: tgUser.username || null,
+        items: itemsPayload,
+        // Compatibility fields for single-item nodes:
+        sku: primaryItem.sku,
+        name: primaryItem.name,
+        category: primaryItem.category,
+        product_type: primaryItem.product_type,
+        system_code: primaryItem.system_code,
+        color: primaryItem.color,
+        price: primaryItem.price,
+        image_url: primaryItem.image_url,
         timestamp: new Date().toISOString()
       };
 
-      console.log('Tork Mini App — Dispenser selected payload:', payload);
-      window.__lastTorkSelectionData = payload; // Global for testing and debugging
+      console.log('Tork Mini App — Kit selected payload:', payload);
+      window.__lastTorkSelectionData = payload;
 
-      // 1. Direct fetch to webhook if available
+      // 1. Send to Backend API
       try {
-        await fetch('/webhook/select-dispenser', {
+        await fetch('/api/manager/select-kit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
       } catch (e) {
-        // Fallback silently if standalone
+        console.warn('API /api/manager/select-kit error:', e);
       }
 
-      // 2. Send via Telegram WebApp sendData
+      // 2. Telegram WebApp sendData fallback (if opened from reply keyboard)
       if (tg && typeof tg.sendData === 'function') {
         try {
           tg.sendData(JSON.stringify(payload));
@@ -216,8 +298,9 @@ createApp({
       this.haptic('success');
       this.submittedSelectionData = payload;
       this.selectionSuccess = true;
+      this.showKitDrawer = false;
 
-      // Automatically close Mini App after brief delay to return manager to chat
+      // Close Mini App after brief delay to return manager to Telegram chat
       if (tg && typeof tg.close === 'function') {
         setTimeout(() => {
           try {
@@ -225,8 +308,14 @@ createApp({
           } catch (e) {
             console.warn('Telegram close failed:', e);
           }
-        }, 1000);
+        }, 1200);
       }
+    },
+
+    confirmDispenserSelection(product) {
+      if (!product) return;
+      this.addItemToKit(product);
+      this.submitKit();
     },
 
     quickSelect(product) {
