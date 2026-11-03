@@ -1,6 +1,9 @@
-
 .env
 *.xlsx
 *.xls
 *.pdf
 __pycache__/
+workflows/credentials_import.json
+*.jpg
+*.jpeg
+*.png
