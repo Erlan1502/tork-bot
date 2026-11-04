@@ -35,7 +35,8 @@ POSTGRES_PASSWORD=supersecret_tork_kz_pass
 POSTGRES_DB=tork_bot_db
 POSTGRES_PORT=5433
 N8N_ENCRYPTION_KEY=tork-bot-kz-secret-encryption-key-2026
-N8N_HOST=localhost
+N8N_HOST=0.0.0.0
+N8N_LISTEN_ADDRESS=0.0.0.0
 N8N_PORT=5678
 N8N_PROTOCOL=http
 GOTENBERG_URL=http://gotenberg:3000
@@ -60,17 +61,18 @@ if [ -z "$TUNNEL_URL" ]; then
 fi
 
 echo "WEBHOOK_URL=$TUNNEL_URL" >> .env
+echo "N8N_WEBHOOK_URL=$TUNNEL_URL" >> .env
 echo "URL туннеля: $TUNNEL_URL"
 
 # 5. Apply updated .env and recreate containers
 echo "🔄 [5/6] Применение переменных и перезапуск сервисов (docker compose up -d)..."
-sudo docker compose up -d --remove-orphans
+sudo docker compose up -d --remove-orphans --force-recreate
 
 echo "⏳ Ожидание полной готовности n8n..."
 for i in {1..30}; do
-    CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:5679/" || true)
+    CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8088/" || true)
     if [ "$CODE" = "200" ] || [ "$CODE" = "401" ]; then
-        echo "✅ n8n готов (код $CODE, попытка $i)!"
+        echo "✅ n8n готов через Nginx (код $CODE, попытка $i)!"
         break
     fi
     sleep 2
@@ -79,13 +81,13 @@ done
 # Publish workflow in n8n and wait for router activation
 echo "📢 Публикация и активация рабочего процесса n8n..."
 sudo docker exec -u node tork_n8n n8n publish:workflow --id=sHnoGT842oAJacFu || true
-sudo docker restart tork_n8n
+sudo docker restart tork_n8n tork_cdn
 
-echo "⏳ Ожидание перезапуска n8n после публикации..."
+echo "⏳ Ожидание перезапуска n8n и Nginx после публикации..."
 for i in {1..30}; do
-    CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:5679/" || true)
+    CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8088/" || true)
     if [ "$CODE" = "200" ] || [ "$CODE" = "401" ]; then
-        echo "✅ n8n снова онлайн (попытка $i)!"
+        echo "✅ Сервисы снова онлайн через Nginx (код $CODE, попытка $i)!"
         break
     fi
     sleep 2
@@ -111,14 +113,21 @@ TEST_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "http://localhost:8
      -H "x-telegram-bot-api-secret-token: $SECRET_TOKEN" \
      -d '{"update_id":1,"message":{"message_id":999,"chat":{"id":5699064827,"type":"private"},"from":{"id":5699064827,"first_name":"Erlan"},"text":"/start"}}' || true)
 
-echo "HTTP код ответа вебхука: $TEST_STATUS"
+echo "HTTP код ответа локального вебхука (Nginx): $TEST_STATUS"
+
+TUNNEL_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$WEBHOOK_TARGET" \
+     -H "Content-Type: application/json" \
+     -H "x-telegram-bot-api-secret-token: $SECRET_TOKEN" \
+     -d '{"update_id":1,"message":{"message_id":999,"chat":{"id":5699064827,"type":"private"},"from":{"id":5699064827,"first_name":"Erlan"},"text":"/start"}}' || true)
+
+echo "HTTP код ответа через Cloudflare туннель: $TUNNEL_STATUS"
 
 echo ""
 echo "=================================================="
-if [ "$TEST_STATUS" = "200" ]; then
+if [ "$TEST_STATUS" = "200" ] || [ "$TUNNEL_STATUS" = "200" ]; then
     echo "🎉 УСПЕХ! Вебхук ответил 200 OK — бот полностью активен!"
 else
-    echo "⚠️ Вебхук вернул статус: $TEST_STATUS. Логи n8n:"
+    echo "⚠️ Вебхук вернул статус: Nginx=$TEST_STATUS, Tunnel=$TUNNEL_STATUS. Логи n8n:"
     sudo docker logs tork_n8n --tail 25
 fi
 echo "=================================================="

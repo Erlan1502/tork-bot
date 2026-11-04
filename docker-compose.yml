@@ -98,16 +98,17 @@ services:
       - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD:-supersecret}
       - DB_POSTGRESDB_SCHEMA=public
       - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY:-tork-bot-kz-secret-encryption-key-2026}
-      - N8N_HOST=${N8N_HOST:-localhost}
+      - N8N_LISTEN_ADDRESS=0.0.0.0
+      - N8N_HOST=${N8N_HOST:-0.0.0.0}
       - N8N_PORT=5678
       - N8N_PROTOCOL=${N8N_PROTOCOL:-http}
       - WEBHOOK_URL=${WEBHOOK_URL}
+      - N8N_WEBHOOK_URL=${WEBHOOK_URL}
       - N8N_PROXY_HOPS=1
       - N8N_DEFAULT_BINARY_DATA_MODE=default
       - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
       - NODE_FUNCTION_ALLOW_BUILTIN=fs,path
       - GENERIC_TIMEZONE=Asia/Almaty
-      - N8N_SKIP_WEBHOOK_DEREGISTRATION_SHUTDOWN=true
       # Business logic & APIs
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - MANAGER_CHAT_ID=${MANAGER_CHAT_ID}
