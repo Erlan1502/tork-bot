@@ -97,9 +97,9 @@ def test_workflow_structure():
         "Process Manager Result -> Send Manager Result Photo"
     print("  [OK] Event flow: Photo -> Download -> Fetch SKU -> Prepare Montage -> Gemini API -> Process Result -> Send Result Photo")
     
-    # Branch 2 & 3: Welcome & Menu
-    assert any(c.get("node") == "Send Manager Welcome & Menu" for c in route_conns[2]), \
-        "Branch 2 must route to Send Manager Welcome & Menu"
+    # Branch 2 & 3: Welcome & Menu (or Presentation download callback)
+    assert any(c.get("node") in ["Send Manager Welcome & Menu", "Render & Send Presentation"] for c in route_conns[2]), \
+        "Branch 2 must route to Send Manager Welcome & Menu or Render & Send Presentation"
     assert any(c.get("node") == "Send Manager Welcome & Menu" for c in route_conns[3]), \
         "Branch 3 must route to Send Manager Welcome & Menu"
     print("  [OK] Event flow: /start, text & commands -> Send Manager Welcome & Menu")

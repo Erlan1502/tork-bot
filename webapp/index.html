@@ -65,19 +65,27 @@
             </div>
           </div>
 
-          <!-- Total Counter / Kit Trigger Badge -->
-          <button 
-            @click="toggleKitDrawer"
-            id="btn-header-kit-counter"
-            :class="[
-              'tap-effect text-[11px] font-semibold px-2.5 py-1 rounded-full transition flex items-center gap-1.5 shadow-xs',
-              totalKitCount > 0 
-                ? 'bg-sky-400 text-slate-900 font-bold ring-2 ring-white/50' 
-                : 'bg-white/10 border border-white/20 text-sky-200 hover:bg-white/20'
-            ]">
-            <span>📦 Комплект:</span>
-            <strong>{{ totalKitCount }} шт.</strong>
-          </button>
+          <div class="flex items-center gap-1.5">
+            <button 
+              @click="openKpModal"
+              id="btn-header-create-kp"
+              class="tap-effect text-[11px] font-bold px-2.5 py-1 rounded-full transition flex items-center gap-1 shadow-xs bg-emerald-500 hover:bg-emerald-400 text-white">
+              <span>📄 Создать КП</span>
+            </button>
+            <!-- Total Counter / Kit Trigger Badge -->
+            <button 
+              @click="toggleKitDrawer"
+              id="btn-header-kit-counter"
+              :class="[
+                'tap-effect text-[11px] font-semibold px-2.5 py-1 rounded-full transition flex items-center gap-1.5 shadow-xs',
+                totalKitCount > 0 
+                  ? 'bg-sky-400 text-slate-900 font-bold ring-2 ring-white/50' 
+                  : 'bg-white/10 border border-white/20 text-sky-200 hover:bg-white/20'
+              ]">
+              <span>📦</span>
+              <strong>{{ totalKitCount }} шт.</strong>
+            </button>
+          </div>
         </div>
 
         <!-- TOP APP TABS (Каталог | Прайс-лист | Доступ) -->
@@ -521,15 +529,23 @@
         </div>
       </div>
 
-      <!-- Action Button -->
-      <button 
-        id="btn-submit-kit-bottom"
-        @click="submitKit"
-        :disabled="isSubmitting"
-        class="tap-effect bg-gradient-to-r from-sky-400 to-sky-500 hover:from-sky-300 hover:to-sky-400 active:from-sky-500 active:to-sky-600 text-slate-950 font-extrabold text-xs py-2.5 px-4 rounded-xl shadow-lg flex items-center gap-1.5 shrink-0">
-        <span v-if="isSubmitting" class="animate-spin">⏳</span>
-        <span v-else>📸 Примерить →</span>
-      </button>
+      <!-- Action Buttons -->
+      <div class="flex items-center gap-2 shrink-0">
+        <button 
+          id="btn-create-kp-bottom"
+          @click="openKpModal"
+          class="tap-effect bg-white hover:bg-slate-100 text-slate-900 font-extrabold text-xs py-2 px-3 rounded-xl shadow-md border border-slate-200 flex items-center gap-1">
+          <span>📄 КП (PDF)</span>
+        </button>
+        <button 
+          id="btn-submit-kit-bottom"
+          @click="submitKit"
+          :disabled="isSubmitting"
+          class="tap-effect bg-gradient-to-r from-sky-400 to-sky-500 hover:from-sky-300 hover:to-sky-400 active:from-sky-500 active:to-sky-600 text-slate-950 font-extrabold text-xs py-2 px-3.5 rounded-xl shadow-lg flex items-center gap-1.5">
+          <span v-if="isSubmitting" class="animate-spin">⏳</span>
+          <span v-else>📸 Примерить →</span>
+        </button>
+      </div>
     </div>
 
     <!-- KIT REVIEW DRAWER (ШТОРКА КОМПЛЕКТА) -->
@@ -595,14 +611,22 @@
             <span>Итого по комплекту:</span>
             <span class="text-sm font-extrabold text-tork">{{ formatPrice(totalKitPrice) }}</span>
           </div>
-          <button 
-            id="btn-confirm-drawer-kit"
-            @click="submitKit"
-            :disabled="isSubmitting"
-            class="tap-effect w-full bg-tork hover:bg-tork-dark text-white font-bold py-3.5 rounded-2xl flex items-center justify-center gap-2 shadow-lg">
-            <span v-if="isSubmitting" class="animate-spin">⏳</span>
-            <span v-else>🚀 Сохранить комплект и перейти к фото</span>
-          </button>
+          <div class="grid grid-cols-2 gap-2">
+            <button 
+              id="btn-open-kp-from-drawer"
+              @click="openKpModal"
+              class="tap-effect bg-white border-2 border-tork text-tork hover:bg-sky-50 font-bold py-3 rounded-xl flex items-center justify-center gap-1.5 shadow-sm text-xs">
+              <span>📄 Создать КП</span>
+            </button>
+            <button 
+              id="btn-confirm-drawer-kit"
+              @click="submitKit"
+              :disabled="isSubmitting"
+              class="tap-effect bg-tork hover:bg-tork-dark text-white font-bold py-3 rounded-xl flex items-center justify-center gap-1.5 shadow-lg text-xs">
+              <span v-if="isSubmitting" class="animate-spin">⏳</span>
+              <span v-else>🚀 Примерить</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -710,6 +734,160 @@
               </button>
             </div>
           </template>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- MODAL: ВВОД ДАННЫХ ДЛЯ ГЕНЕРАЦИИ КП КАЗАХСТАНА (5 СТРАНИЦ)             -->
+    <!-- ===================================================================== -->
+    <div 
+      v-if="showKpModal" 
+      id="kp-modal-backdrop"
+      class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 transition-opacity">
+      
+      <div 
+        id="kp-modal-container"
+        class="bg-white rounded-t-3xl sm:rounded-2xl max-w-lg w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-slide-up">
+        
+        <!-- Header -->
+        <div class="px-5 py-3.5 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-tork to-tork-dark text-white">
+          <div class="flex items-center gap-2.5">
+            <span class="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-lg">📄</span>
+            <div>
+              <h2 class="text-sm font-bold leading-tight">Коммерческое предложение Tork</h2>
+              <p class="text-[10px] text-sky-200">5 страниц А4 • Казахстан • НДС 16% • 50/50 оплата</p>
+            </div>
+          </div>
+          <button 
+            @click="closeKpModal" 
+            class="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-xs font-bold transition">
+            ✕
+          </button>
+        </div>
+
+        <!-- Body -->
+        <div class="p-5 overflow-y-auto space-y-3.5 text-xs">
+          <!-- Information Badge -->
+          <div class="bg-sky-50 border border-sky-200 rounded-xl p-2.5 text-[11px] text-sky-950 flex items-start gap-2">
+            <span class="text-base shrink-0">ℹ️</span>
+            <div>
+              <strong>Быстрый ввод за 5 секунд:</strong> Менеджер и контакты уже подставлены из профиля. 
+              Укажите только компанию клиента и параметры объекта.
+            </div>
+          </div>
+
+          <!-- Input 1: Company Name -->
+          <div>
+            <label class="block text-[11px] font-bold text-slate-700 mb-1">
+              🏢 Наименование компании клиента <span class="text-red-500">*</span>
+            </label>
+            <input 
+              type="text" 
+              id="kp-input-company"
+              v-model="kpForm.company_name" 
+              placeholder="Пример: ТОО «РУБИЛЬНИК»"
+              class="w-full px-3.5 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none font-medium bg-slate-50/50">
+          </div>
+
+          <!-- Input 2: Facility & Scale -->
+          <div>
+            <label class="block text-[11px] font-bold text-slate-700 mb-1">
+              📍 Тип объекта и масштаб <span class="text-red-500">*</span>
+            </label>
+            <input 
+              type="text" 
+              id="kp-input-facility"
+              v-model="kpForm.client_facility" 
+              placeholder="Пример: Гостиничный комплекс, 5 этажей, 42 санузла"
+              class="w-full px-3.5 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none font-medium bg-slate-50/50">
+          </div>
+
+          <!-- Input 3: City / Location -->
+          <div>
+            <label class="block text-[11px] font-bold text-slate-700 mb-1">
+              🌍 Город / Локация
+            </label>
+            <input 
+              type="text" 
+              id="kp-input-city"
+              v-model="kpForm.client_city" 
+              placeholder="г. Астана, Казахстан"
+              class="w-full px-3.5 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none font-medium bg-slate-50/50">
+          </div>
+
+          <!-- Grid: Manager Name & Phone -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-[11px] font-bold text-slate-700 mb-1">
+                👤 Менеджер (ФИО)
+              </label>
+              <input 
+                type="text" 
+                id="kp-input-manager-name"
+                v-model="kpForm.manager_name" 
+                placeholder="Ерлан Кубесов"
+                class="w-full px-3.5 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none font-medium bg-slate-50/50">
+            </div>
+            <div>
+              <label class="block text-[11px] font-bold text-slate-700 mb-1">
+                📞 Телефон менеджера
+              </label>
+              <input 
+                type="text" 
+                id="kp-input-manager-phone"
+                v-model="kpForm.manager_phone" 
+                placeholder="+7 (777) 777-77-77"
+                class="w-full px-3.5 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none font-medium bg-slate-50/50">
+            </div>
+          </div>
+
+          <!-- Proposal Summary Preview -->
+          <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1.5 text-[11px]">
+            <div class="flex justify-between text-slate-600">
+              <span>Состав предложения:</span>
+              <span class="font-bold text-slate-800">{{ totalKitCount > 0 ? (totalKitCount + ' шт. диспенсеров') : 'Стандартный комплект (56 шт.)' }}</span>
+            </div>
+            <div class="flex justify-between text-slate-600">
+              <span>Ставка налога:</span>
+              <span class="font-bold text-emerald-700">НДС 16% (РК)</span>
+            </div>
+            <div class="flex justify-between text-slate-600">
+              <span>Условия оплаты:</span>
+              <span class="font-bold text-slate-800">50% аванс / 50% остаток</span>
+            </div>
+            <div class="flex justify-between text-slate-600">
+              <span>Монтаж и доставка:</span>
+              <span class="font-bold text-emerald-700">0 ₸ (Бесплатно)</span>
+            </div>
+            <div class="flex justify-between text-slate-600">
+              <span>Визуализация на титуле:</span>
+              <span class="font-bold text-sky-700">Фотомонтаж санузла</span>
+            </div>
+          </div>
+
+          <!-- Success Alert -->
+          <div v-if="kpGeneratedSuccess" class="bg-emerald-50 border border-emerald-300 text-emerald-800 p-3 rounded-xl text-center space-y-1">
+            <div class="text-sm font-extrabold">✅ КП успешно сформировано!</div>
+            <div class="text-[11px]">Файл <strong>{{ generatedKpFilename }}</strong> отправлен прямо в ваш Telegram чат.</div>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3">
+          <button 
+            @click="closeKpModal" 
+            class="tap-effect px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 font-bold text-xs">
+            Отмена
+          </button>
+          <button 
+            id="btn-submit-generate-kp"
+            @click="submitGenerateKp" 
+            :disabled="isGeneratingKp"
+            class="tap-effect flex-1 bg-gradient-to-r from-tork to-sky-600 hover:from-tork-dark hover:to-sky-700 text-white font-extrabold py-2.5 px-4 rounded-xl shadow-md flex items-center justify-center gap-2 text-xs transition">
+            <span v-if="isGeneratingKp" class="animate-spin text-sm">⏳</span>
+            <span v-else>🚀 Сформировать и отправить КП в чат (PDF)</span>
+          </button>
         </div>
       </div>
     </div>

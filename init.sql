@@ -63,9 +63,14 @@ CREATE TABLE IF NOT EXISTS user_sessions_leads (
     last_photo_file_id VARCHAR(255),
     selected_bundle JSONB,
     selected_sku VARCHAR(50) DEFAULT '551000',
+    before_image_url TEXT,
+    last_rendered_image_url TEXT,
+    previous_montage_state JSONB DEFAULT NULL,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
 );
+
+ALTER TABLE user_sessions_leads ADD COLUMN IF NOT EXISTS previous_montage_state JSONB DEFAULT NULL;
 
 -- Индексы для ускорения детерминированного подбора
 CREATE INDEX IF NOT EXISTS idx_products_lookup 

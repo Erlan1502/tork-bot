@@ -28,6 +28,18 @@ createApp({
       editingPriceSku: null,
       editingPriceVal: null,
       adminToast: null,
+      showKpModal: false,
+      isGeneratingKp: false,
+      kpGeneratedSuccess: false,
+      generatedKpFilename: '',
+      kpForm: {
+        company_name: '',
+        client_facility: 'Гостиничный комплекс, 5 этажей, 42 санузла',
+        client_city: 'г. Астана, Казахстан',
+        manager_name: '',
+        manager_phone: '',
+        manager_tg: ''
+      },
       zones: [
         { id: 'zone_wash', label: 'Мытье рук', icon: '🧼' },
         { id: 'zone_toilet', label: 'Туалетная', icon: '🚽' },
@@ -95,6 +107,12 @@ createApp({
   mounted() {
     this.initTelegram();
     this.loadCatalog();
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('mode') === 'create_kp' || urlParams.get('action') === 'create_kp') {
+      setTimeout(() => {
+        this.openKpModal();
+      }, 300);
+    }
   },
 
   methods: {
@@ -482,6 +500,116 @@ createApp({
       this.adminToast = { msg, type };
       this.haptic(type === 'error' ? 'error' : 'success');
       setTimeout(() => { this.adminToast = null; }, 3000);
+    },
+
+    async openKpModal() {
+      this.showKpModal = true;
+      this.kpGeneratedSuccess = false;
+      this.haptic('selection');
+
+      const tg = window.Telegram?.WebApp;
+      const tgUser = tg?.initDataUnsafe?.user || {};
+      const tgId = tgUser.id || 5699064827;
+
+      try {
+        const resp = await fetch(`/api/manager/form-defaults?telegram_id=${tgId}`);
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data.ok && data.defaults) {
+            const d = data.defaults;
+            if (!this.kpForm.manager_name) this.kpForm.manager_name = d.manager_name || 'Ерлан Кубесов';
+            if (!this.kpForm.manager_phone) this.kpForm.manager_phone = d.manager_phone || '+7 (777) 777-77-77';
+            if (!this.kpForm.manager_tg) this.kpForm.manager_tg = d.manager_tg || '@erlan_tork_kz';
+            if (!this.kpForm.client_city) this.kpForm.client_city = d.client_city || 'г. Астана, Казахстан';
+            if (!this.kpForm.company_name && d.company_name) this.kpForm.company_name = d.company_name;
+            if (!this.kpForm.client_facility && d.client_facility) this.kpForm.client_facility = d.client_facility;
+          }
+        }
+      } catch (e) {
+        console.warn('Could not fetch form defaults:', e);
+        if (!this.kpForm.manager_name) this.kpForm.manager_name = 'Ерлан Кубесов';
+        if (!this.kpForm.manager_phone) this.kpForm.manager_phone = '+7 (777) 777-77-77';
+        if (!this.kpForm.manager_tg) this.kpForm.manager_tg = '@erlan_tork_kz';
+      }
+    },
+
+    closeKpModal() {
+      this.showKpModal = false;
+      this.kpGeneratedSuccess = false;
+    },
+
+    async submitGenerateKp() {
+      if (!this.kpForm.company_name || !this.kpForm.company_name.trim()) {
+        this.showAdminToast('Укажите наименование компании клиента (например: ТОО «РУБИЛЬНИК»)', 'error');
+        return;
+      }
+      if (!this.kpForm.client_facility || !this.kpForm.client_facility.trim()) {
+        this.showAdminToast('Укажите тип объекта и масштаб (например: Гостиничный комплекс, 5 этажей, 42 санузла)', 'error');
+        return;
+      }
+
+      this.isGeneratingKp = true;
+      this.haptic('impact');
+
+      const tg = window.Telegram?.WebApp;
+      const tgUser = tg?.initDataUnsafe?.user || {};
+      const tgChat = tg?.initDataUnsafe?.chat || {};
+      const tgId = tgUser.id || 5699064827;
+      const chatId = tgUser.id || tgChat.id || 5699064827;
+
+      const items = this.kitItemsList.length > 0 ? this.kitItemsList.map(item => ({
+        sku: String(item.product.sku).trim(),
+        name: item.product.name,
+        system_code: item.product.system_code,
+        color: item.product.color,
+        price: item.product.price,
+        count: item.count || 1
+      })) : null;
+
+      const payload = {
+        telegram_id: tgId,
+        chat_id: chatId,
+        company_name: this.kpForm.company_name.trim(),
+        client_facility: this.kpForm.client_facility.trim(),
+        client_city: this.kpForm.client_city.trim() || 'г. Астана, Казахстан',
+        manager_name: this.kpForm.manager_name.trim() || undefined,
+        manager_phone: this.kpForm.manager_phone.trim() || undefined,
+        manager_tg: this.kpForm.manager_tg.trim() || undefined,
+        items: items,
+        send_to_telegram: true
+      };
+
+      try {
+        const resp = await fetch('/api/manager/generate-kp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (resp.ok) {
+          const res = await resp.json();
+          this.isGeneratingKp = false;
+          this.kpGeneratedSuccess = true;
+          this.generatedKpFilename = res.filename || 'КП_Tork.pdf';
+          this.haptic('success');
+          this.showAdminToast('✅ КП успешно сформировано и отправлено в чат!');
+
+          if (tg && typeof tg.close === 'function') {
+            setTimeout(() => {
+              try {
+                tg.close();
+              } catch (e) {}
+            }, 1800);
+          }
+        } else {
+          const err = await resp.json();
+          throw new Error(err.detail || 'Ошибка генерации КП');
+        }
+      } catch (err) {
+        this.isGeneratingKp = false;
+        this.haptic('error');
+        this.showAdminToast('Ошибка: ' + err.message, 'error');
+      }
     }
   }
 }).mount('#app');

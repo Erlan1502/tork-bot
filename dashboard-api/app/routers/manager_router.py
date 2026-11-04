@@ -5,13 +5,21 @@ import json
 import os
 import urllib.request
 import urllib.parse
-from typing import List, Dict, Any, Optional
-from fastapi import APIRouter, HTTPException
+from datetime import datetime
+from typing import List, Dict, Any, Optional, Union
+from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel
 from PIL import Image, ImageFilter
 
 from app.database import get_db_cursor
 from app.config import settings
+from app.services.presentation_service import (
+    compile_manager_presentation,
+    compile_commercial_proposal_kz,
+    get_default_kp_form_values,
+    send_telegram_document,
+    answer_telegram_callback
+)
 
 logger = logging.getLogger(__name__)
 
@@ -47,10 +55,11 @@ class SelectKitPayload(BaseModel):
 
 
 def send_telegram_message(chat_id: int, text: str, reply_markup: Optional[Dict[str, Any]] = None):
-    if not TELEGRAM_BOT_TOKEN or not chat_id:
+    token = settings.TELEGRAM_BOT_TOKEN or TELEGRAM_BOT_TOKEN or os.getenv("TELEGRAM_BOT_TOKEN", "")
+    if not token or not chat_id:
         return
     try:
-        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        url = f"https://api.telegram.org/bot{token}/sendMessage"
         payload = {
             "chat_id": chat_id,
             "text": text,
@@ -69,6 +78,111 @@ def send_telegram_message(chat_id: int, text: str, reply_markup: Optional[Dict[s
             logger.info(f"Sent Telegram notification to {chat_id}, status: {resp.status}")
     except Exception as e:
         logger.error(f"Failed to send Telegram message to {chat_id}: {e}")
+
+
+def send_telegram_photo(
+    chat_id: int,
+    photo_data: Union[bytes, str],
+    caption: Optional[str] = None,
+    reply_markup: Optional[Dict[str, Any]] = None
+) -> bool:
+    token = settings.TELEGRAM_BOT_TOKEN or TELEGRAM_BOT_TOKEN or os.getenv("TELEGRAM_BOT_TOKEN", "")
+    if not token or not chat_id:
+        return False
+
+    url = f"https://api.telegram.org/bot{token}/sendPhoto"
+
+    # If photo_data is a URL or file_id (short string, not base64)
+    if isinstance(photo_data, str) and (photo_data.startswith("http://") or photo_data.startswith("https://") or (len(photo_data) < 200 and not photo_data.startswith("data:"))):
+        payload = {
+            "chat_id": chat_id,
+            "photo": photo_data,
+            "parse_mode": "HTML"
+        }
+        if caption:
+            payload["caption"] = caption
+        if reply_markup:
+            payload["reply_markup"] = reply_markup
+        try:
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={"Content-Type": "application/json"}
+            )
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                res = json.loads(resp.read().decode("utf-8"))
+                return bool(res.get("ok"))
+        except Exception as e:
+            logger.error(f"Error sending photo by URL: {e}")
+            return False
+
+    # Otherwise decode base64 or use raw bytes
+    img_bytes: bytes
+    if isinstance(photo_data, str):
+        raw_b64 = photo_data
+        if "," in raw_b64:
+            raw_b64 = raw_b64.split(",", 1)[1]
+        try:
+            img_bytes = base64.b64decode(raw_b64)
+        except Exception as e:
+            logger.error(f"Failed to decode base64 photo for chat {chat_id}: {e}")
+            return False
+    else:
+        img_bytes = photo_data
+
+    boundary = f"----WebKitFormBoundary{os.urandom(16).hex()}"
+    body = bytearray()
+
+    # chat_id
+    body.extend(f"--{boundary}\r\n".encode("utf-8"))
+    body.extend(b'Content-Disposition: form-data; name="chat_id"\r\n\r\n')
+    body.extend(str(chat_id).encode("utf-8"))
+    body.extend(b"\r\n")
+
+    # caption
+    if caption:
+        body.extend(f"--{boundary}\r\n".encode("utf-8"))
+        body.extend(b'Content-Disposition: form-data; name="caption"\r\n\r\n')
+        body.extend(caption.encode("utf-8"))
+        body.extend(b"\r\n")
+
+        body.extend(f"--{boundary}\r\n".encode("utf-8"))
+        body.extend(b'Content-Disposition: form-data; name="parse_mode"\r\n\r\n')
+        body.extend(b"HTML\r\n")
+
+    # reply_markup
+    if reply_markup:
+        body.extend(f"--{boundary}\r\n".encode("utf-8"))
+        body.extend(b'Content-Disposition: form-data; name="reply_markup"\r\n\r\n')
+        body.extend(json.dumps(reply_markup, ensure_ascii=False).encode("utf-8"))
+        body.extend(b"\r\n")
+
+    # photo binary
+    body.extend(f"--{boundary}\r\n".encode("utf-8"))
+    body.extend(b'Content-Disposition: form-data; name="photo"; filename="restored_fitting.jpg"\r\n')
+    body.extend(b"Content-Type: image/jpeg\r\n\r\n")
+    body.extend(img_bytes)
+    body.extend(b"\r\n")
+
+    body.extend(f"--{boundary}--\r\n".encode("utf-8"))
+
+    try:
+        req = urllib.request.Request(
+            url,
+            data=bytes(body),
+            headers={"Content-Type": f"multipart/form-data; boundary={boundary}"}
+        )
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            res_data = json.loads(resp.read().decode("utf-8"))
+            if res_data.get("ok"):
+                logger.info(f"Successfully sent Telegram photo to chat {chat_id}")
+                return True
+            else:
+                logger.error(f"Telegram API photo error: {res_data}")
+                return False
+    except Exception as e:
+        logger.error(f"Failed to send photo to Telegram chat {chat_id}: {e}")
+        return False
 
 
 @router.post("/select-kit")
@@ -424,6 +538,27 @@ def composite_fitting(req: CompositeRequest):
     # Fallback: if Gemini fails, use user photo
     final_result_base64 = ai_result_base64 or req.user_photo_base64
 
+    # Persist Before & After images in PostgreSQL user_sessions_leads for presentation compilation
+    tg_id = req.tg_user_id or req.chat_id
+    if tg_id:
+        try:
+            with get_db_cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO user_sessions_leads (tg_user_id, before_image_url, last_rendered_image_url, current_step, updated_at)
+                    VALUES (%s, %s, %s, 'MONTAGE_COMPLETED', NOW())
+                    ON CONFLICT (tg_user_id) DO UPDATE SET
+                        before_image_url = EXCLUDED.before_image_url,
+                        last_rendered_image_url = EXCLUDED.last_rendered_image_url,
+                        current_step = 'MONTAGE_COMPLETED',
+                        updated_at = NOW();
+                    """,
+                    (tg_id, req.user_photo_base64, final_result_base64)
+                )
+                logger.info(f"Persisted before and after montage images for manager {tg_id}")
+        except Exception as e:
+            logger.warning(f"Could not persist before/after images in user_sessions_leads: {e}")
+
     # 4. Build comprehensive Telegram caption with Smart Audit & Spec
     caption_lines = [
         "✨ <b>Визуализация санузла готова!</b>\n"
@@ -465,3 +600,569 @@ def composite_fitting(req: CompositeRequest):
         "ai_generated": bool(ai_result_base64),
         "audit_plan": reasoning_plan
     }
+
+
+class RenderPresentationRequest(BaseModel):
+    telegram_id: Optional[int] = None
+    tg_user_id: Optional[int] = None
+    chat_id: Optional[int] = None
+    system_code: Optional[str] = None
+    segment: Optional[str] = None
+    before_image: Optional[str] = None
+    after_image: Optional[str] = None
+    send_to_telegram: Optional[bool] = False
+    callback_query_id: Optional[str] = None
+    format: Optional[str] = "pdf"  # "pdf" or "json"
+
+
+@router.post("/render-presentation")
+def render_presentation(req: RenderPresentationRequest, format: Optional[str] = None):
+    """
+    Production Presentation Generator Endpoint for Tork Kazakhstan (Phase 2):
+    - Accepts manager telegram_id.
+    - Loads client washroom photo (Before) & Gemini montage (After) from PostgreSQL user_sessions_leads.
+    - Loads selected system & SKU from user_sessions_leads.
+    - Injects verified Essity proof facts & metrics (percentages, seconds, doses) via get_system_arguments().
+    - Compiles strictly 1-page A4 PDF via Gotenberg Chromium (~0.4s, 0 AI tokens).
+    - If send_to_telegram=True: delivers PDF document directly to manager chat in Telegram.
+    - Otherwise returns PDF binary or JSON metadata with file URL.
+    """
+    tg_id = req.telegram_id or req.tg_user_id or req.chat_id
+    if not tg_id:
+        raise HTTPException(status_code=400, detail="telegram_id is required")
+
+    try:
+        pdf_bytes, filename, meta = compile_manager_presentation(
+            telegram_id=tg_id,
+            system_code_override=req.system_code,
+            segment_override=req.segment,
+            before_image_override=req.before_image,
+            after_image_override=req.after_image
+        )
+    except Exception as e:
+        logger.error(f"Failed to compile presentation for manager {tg_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to compile presentation: {e}")
+
+    # If requested to send directly to Telegram chat
+    if req.send_to_telegram:
+        target_chat_id = req.chat_id or tg_id
+        caption = (
+            f"📊 <b>Презентация решения Tork готова!</b>\n\n"
+            f"• <b>Система:</b> {meta['system_name']} ({meta['system_code']})\n"
+            f"• <b>Артикул:</b> <code>{meta['sku']}</code>\n\n"
+            f"📄 <i>Одностраничное коммерческое предложение для клиента с расчетом эффективности, окупаемости и визуализацией До/После.</i>"
+        )
+        sent = send_telegram_document(target_chat_id, pdf_bytes, filename, caption)
+        if req.callback_query_id:
+            answer_telegram_callback(req.callback_query_id, text="Презентация сформирована и отправлена в чат!")
+
+        return {
+            "ok": True,
+            "status": "sent" if sent else "telegram_send_failed",
+            "chat_id": target_chat_id,
+            "filename": filename,
+            "system_code": meta["system_code"],
+            "system_name": meta["system_name"],
+            "sku": meta["sku"],
+            "file_url": f"/presentations/{filename}",
+            "size_bytes": len(pdf_bytes)
+        }
+
+    # If JSON response requested
+    req_format = (format or req.format or "pdf").lower()
+    if req_format == "json":
+        return {
+            "ok": True,
+            "filename": filename,
+            "system_code": meta["system_code"],
+            "system_name": meta["system_name"],
+            "sku": meta["sku"],
+            "file_url": f"/presentations/{filename}",
+            "pdf_base64": base64.b64encode(pdf_bytes).decode("utf-8"),
+            "size_bytes": len(pdf_bytes)
+        }
+
+    # Default: Return PDF binary with attachment headers
+    quoted_filename = urllib.parse.quote(filename)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{quoted_filename}",
+            "X-Filename": quoted_filename,
+            "X-System-Code": meta["system_code"],
+            "X-SKU": meta["sku"]
+        }
+    )
+
+
+@router.get("/render-presentation")
+def render_presentation_get(
+    telegram_id: int,
+    system_code: Optional[str] = None,
+    segment: Optional[str] = None,
+    format: Optional[str] = "pdf",
+    send_to_telegram: Optional[bool] = False
+):
+    """
+    Convenience GET endpoint to render / test presentation directly in browser or Swagger UI.
+    """
+    req = RenderPresentationRequest(
+        telegram_id=telegram_id,
+        system_code=system_code,
+        segment=segment,
+        send_to_telegram=send_to_telegram,
+        format=format
+    )
+    return render_presentation(req, format=format)
+
+
+# ==============================================================================
+# PHASE 4: FULL COMMERCIAL PROPOSAL GENERATOR V2 (KAZAKHSTAN 5-PAGE KP)
+# ==============================================================================
+
+class GenerateKPRequest(BaseModel):
+    telegram_id: Optional[int] = None
+    tg_user_id: Optional[int] = None
+    chat_id: Optional[int] = None
+    company_name: str
+    client_facility: str
+    client_city: Optional[str] = "г. Астана, Казахстан"
+    manager_name: Optional[str] = None
+    manager_phone: Optional[str] = None
+    manager_tg: Optional[str] = None
+    items: Optional[List[Dict[str, Any]]] = None
+    hero_image: Optional[str] = None
+    send_to_telegram: Optional[bool] = False
+    callback_query_id: Optional[str] = None
+    format: Optional[str] = "pdf"
+
+
+@router.get("/form-defaults")
+def get_form_defaults(telegram_id: Optional[int] = None):
+    """
+    Returns prefilled form values for Kazakhstan KP generator (5-page PDF):
+    - Manager full name from allowed_managers
+    - Manager phone from allowed_managers / session
+    - City (default: г. Астана, Казахстан)
+    - Client facility & company if previously recorded
+    """
+    tg_id = telegram_id or 5699064827
+    defaults = get_default_kp_form_values(tg_id)
+    return {
+        "ok": True,
+        "defaults": defaults
+    }
+
+
+@router.post("/generate-kp")
+def generate_kp(req: GenerateKPRequest, format: Optional[str] = None):
+    """
+    Commercial Proposal Generator for Kazakhstan (Phase 4):
+    - Strict 5-page A4 document matching reference 'КП 1.pdf'
+    - Highlighting 16% VAT (актуальная ставка РК)
+    - 50% advance / 50% remainder payment condition
+    - Visual photomontage embedded on Page 1 (hero image)
+    - Detailed equipment distribution by rooms/floors on Page 3
+    - Tork system advantages & 40% savings infographics on Page 4
+    - 6-step implementation workflow & manager contacts on Page 5
+    - If send_to_telegram=True: delivers PDF document directly to manager chat.
+    """
+    tg_id = req.telegram_id or req.tg_user_id or req.chat_id or 5699064827
+
+    if not req.company_name or not req.company_name.strip():
+        raise HTTPException(status_code=400, detail="Наименование компании клиента обязательно для заполнения")
+
+    if not req.client_facility or not req.client_facility.strip():
+        raise HTTPException(status_code=400, detail="Тип объекта и масштаб обязательны для заполнения")
+
+    try:
+        pdf_bytes, filename, meta = compile_commercial_proposal_kz(
+            telegram_id=tg_id,
+            company_name=req.company_name.strip(),
+            client_facility=req.client_facility.strip(),
+            client_city=req.client_city,
+            manager_name=req.manager_name,
+            manager_phone=req.manager_phone,
+            manager_tg=req.manager_tg,
+            items_override=req.items,
+            hero_image_override=req.hero_image
+        )
+    except Exception as e:
+        logger.error(f"Failed to compile commercial proposal for manager {tg_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to compile commercial proposal: {e}")
+
+    # Persist updated company_name & facility in session for consistency
+    try:
+        with get_db_cursor() as cur:
+            cur.execute(
+                """
+                UPDATE user_sessions_leads
+                SET company_name = %s,
+                    client_facility = %s,
+                    client_city = %s,
+                    updated_at = NOW()
+                WHERE tg_user_id = %s;
+                """,
+                (req.company_name.strip(), req.client_facility.strip(), req.client_city, tg_id)
+            )
+    except Exception as e:
+        logger.warning(f"Could not update session metadata for tg_id {tg_id}: {e}")
+
+    if req.send_to_telegram:
+        target_chat_id = req.chat_id or tg_id
+        caption = (
+            f"🏢 <b>Коммерческое предложение Tork готово!</b>\n\n"
+            f"• <b>Клиент:</b> {meta['client_name']}\n"
+            f"• <b>Объект:</b> {meta['client_facility']}\n"
+            f"• <b>Сумма:</b> {int(round(meta['total_amount'])):,} ₸ (НДС 16%)\n"
+            f"• <b>Предоплата 50%:</b> {int(round(meta['prepayment_amount'])):,} ₸\n"
+            f"• <b>Монтаж:</b> 0 ₸ (Бесплатно)\n\n"
+            f"📄 <i>5 страниц А4: титул с фотомонтажом, спецификация с ценами и расходниками, расстановка по объекту, инфографика окупаемости и условия договора.</i>"
+        ).replace(",", " ")
+        sent = send_telegram_document(target_chat_id, pdf_bytes, filename, caption)
+        if req.callback_query_id:
+            answer_telegram_callback(req.callback_query_id, text="Коммерческое предложение успешно сформировано и отправлено в чат!")
+
+        return {
+            "ok": True,
+            "status": "sent" if sent else "telegram_send_failed",
+            "chat_id": target_chat_id,
+            "filename": filename,
+            "client_name": meta["client_name"],
+            "total_amount": meta["total_amount"],
+            "prepayment_amount": meta["prepayment_amount"],
+            "file_url": f"/presentations/{filename}",
+            "size_bytes": len(pdf_bytes)
+        }
+
+    req_format = (format or req.format or "pdf").lower()
+    if req_format == "json":
+        return {
+            "ok": True,
+            "filename": filename,
+            "client_name": meta["client_name"],
+            "total_amount": meta["total_amount"],
+            "prepayment_amount": meta["prepayment_amount"],
+            "file_url": f"/presentations/{filename}",
+            "pdf_base64": base64.b64encode(pdf_bytes).decode("utf-8"),
+            "size_bytes": len(pdf_bytes)
+        }
+
+    quoted_filename = urllib.parse.quote(filename)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{quoted_filename}",
+            "X-Filename": quoted_filename,
+            "X-Client-Name": urllib.parse.quote(meta["client_name"]),
+            "X-Total-Amount": str(meta["total_amount"])
+        }
+    )
+
+
+@router.get("/generate-kp")
+def generate_kp_get(
+    company_name: str,
+    client_facility: str,
+    telegram_id: Optional[int] = 5699064827,
+    client_city: Optional[str] = "г. Астана, Казахстан",
+    manager_name: Optional[str] = None,
+    manager_phone: Optional[str] = None,
+    format: Optional[str] = "pdf",
+    send_to_telegram: Optional[bool] = False
+):
+    """
+    Convenience GET endpoint to generate Kazakhstan KP directly in browser.
+    """
+    req = GenerateKPRequest(
+        telegram_id=telegram_id,
+        company_name=company_name,
+        client_facility=client_facility,
+        client_city=client_city,
+        manager_name=manager_name,
+        manager_phone=manager_phone,
+        send_to_telegram=send_to_telegram,
+        format=format
+    )
+    return generate_kp(req, format=format)
+
+
+# ==============================================================================
+# PHASE 3: INTERACTIVE SCENARIOS & MISCLICK PROTECTION (UNDO ROLLBACK)
+# ==============================================================================
+
+class ChangeDispenserRequest(BaseModel):
+    telegram_id: Optional[int] = None
+    tg_user_id: Optional[int] = None
+    chat_id: Optional[int] = None
+    callback_query_id: Optional[str] = None
+    send_to_telegram: Optional[bool] = False
+
+
+class RestoreMontageRequest(BaseModel):
+    telegram_id: Optional[int] = None
+    tg_user_id: Optional[int] = None
+    chat_id: Optional[int] = None
+    callback_query_id: Optional[str] = None
+    send_to_telegram: Optional[bool] = False
+
+
+@router.post("/change-dispenser")
+def change_dispenser(req: ChangeDispenserRequest):
+    """
+    Phase 3: Manager triggers '🔄 Выбрать другой диспенсер'.
+    1. Archives current montage state (selected_sku, selected_bundle, before_image_url, last_rendered_image_url)
+       into user_sessions_leads.previous_montage_state.
+    2. CRITICAL: Current rendered image and selected SKU are NOT deleted from the database.
+    3. Updates session current_step to 'SELECTING_DISPENSER'.
+    4. If send_to_telegram=True:
+       Answers callback query and sends undo warning message:
+       «Вы вернулись к каталогу для выбора другого оборудования.
+       ⚠️ Нажали случайно? Нажмите кнопку ниже, чтобы вернуть текущий монтаж.»
+       With keyboard: [ ↩️ Вернуть предыдущий монтаж ] | [ 🛍 Открыть каталог ]
+    """
+    tg_id = req.telegram_id or req.tg_user_id or req.chat_id
+    if not tg_id:
+        raise HTTPException(status_code=400, detail="telegram_id is required")
+
+    target_chat_id = req.chat_id or tg_id
+
+    try:
+        with get_db_cursor() as cur:
+            cur.execute(
+                """
+                SELECT tg_user_id, selected_sku, selected_bundle, before_image_url, 
+                       last_rendered_image_url, previous_montage_state
+                FROM user_sessions_leads
+                WHERE tg_user_id = %s;
+                """,
+                (tg_id,)
+            )
+            row = cur.fetchone()
+
+            if not row:
+                cur.execute(
+                    """
+                    INSERT INTO user_sessions_leads (tg_user_id, selected_sku, current_step, updated_at)
+                    VALUES (%s, '551000', 'SELECTING_DISPENSER', NOW())
+                    RETURNING tg_user_id, selected_sku, selected_bundle, before_image_url, last_rendered_image_url, previous_montage_state;
+                    """,
+                    (tg_id,)
+                )
+                row = cur.fetchone()
+
+            current_sku = row.get("selected_sku") or "551000"
+            archive_state = {
+                "selected_sku": current_sku,
+                "selected_bundle": row.get("selected_bundle"),
+                "before_image_url": row.get("before_image_url"),
+                "last_rendered_image_url": row.get("last_rendered_image_url"),
+                "archived_at": datetime.utcnow().isoformat()
+            }
+
+            cur.execute(
+                """
+                UPDATE user_sessions_leads
+                SET previous_montage_state = %s::jsonb,
+                    current_step = 'SELECTING_DISPENSER',
+                    updated_at = NOW()
+                WHERE tg_user_id = %s;
+                """,
+                (json.dumps(archive_state, ensure_ascii=False), tg_id)
+            )
+            logger.info(f"Archived montage state for manager {tg_id}: SKU {current_sku}")
+    except Exception as e:
+        logger.error(f"Error archiving montage state for {tg_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
+
+    if req.callback_query_id:
+        answer_telegram_callback(req.callback_query_id, text="Вы перешли к выбору оборудования")
+
+    webhook_base = (settings.WEBHOOK_URL or os.getenv("WEBHOOK_URL", "http://localhost:8088")).rstrip("/")
+    webapp_url = f"{webhook_base}/app/index.html"
+
+    message_text = (
+        "Вы вернулись к каталогу для выбора другого оборудования.\n"
+        "⚠️ Нажали случайно? Нажмите кнопку ниже, чтобы вернуть текущий монтаж."
+    )
+    reply_markup = {
+        "inline_keyboard": [
+            [
+                {
+                    "text": "↩️ Вернуть предыдущий монтаж",
+                    "callback_data": "restore_previous_montage"
+                }
+            ],
+            [
+                {
+                    "text": "🛍 Открыть каталог",
+                    "web_app": {
+                        "url": webapp_url
+                    }
+                }
+            ]
+        ]
+    }
+
+    if req.send_to_telegram:
+        send_telegram_message(target_chat_id, message_text, reply_markup=reply_markup)
+
+    return {
+        "ok": True,
+        "status": "archived",
+        "telegram_id": tg_id,
+        "current_step": "SELECTING_DISPENSER",
+        "previous_montage_state": archive_state,
+        "message_text": message_text,
+        "reply_markup": reply_markup
+    }
+
+
+@router.get("/change-dispenser")
+def change_dispenser_get(telegram_id: int, send_to_telegram: Optional[bool] = False):
+    """Convenience GET endpoint to trigger change-dispenser."""
+    return change_dispenser(ChangeDispenserRequest(telegram_id=telegram_id, send_to_telegram=send_to_telegram))
+
+
+@router.post("/restore-montage")
+def restore_montage(req: RestoreMontageRequest):
+    """
+    Phase 3: Accidental misclick protection & Instant State Rollback ('↩️ Вернуть предыдущий монтаж').
+    1. Loads archived montage state from user_sessions_leads.previous_montage_state.
+    2. Restores selected_sku, selected_bundle, last_rendered_image_url into active session.
+    3. Updates current_step to 'MONTAGE_RESTORED'.
+    4. Instantly sends restored montage photo back with original buttons:
+       [ 📊 Скачать презентацию (PDF) ]
+       [ 🔄 Выбрать другой диспенсер ]
+    5. ZERO Gemini token consumption and zero re-computation.
+    """
+    tg_id = req.telegram_id or req.tg_user_id or req.chat_id
+    if not tg_id:
+        raise HTTPException(status_code=400, detail="telegram_id is required")
+
+    target_chat_id = req.chat_id or tg_id
+
+    try:
+        with get_db_cursor() as cur:
+            cur.execute(
+                """
+                SELECT tg_user_id, selected_sku, selected_bundle, before_image_url, 
+                       last_rendered_image_url, previous_montage_state
+                FROM user_sessions_leads
+                WHERE tg_user_id = %s;
+                """,
+                (tg_id,)
+            )
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="Сессия пользователя не найдена")
+
+            prev = row.get("previous_montage_state")
+            if not prev and not row.get("last_rendered_image_url"):
+                raise HTTPException(status_code=400, detail="Нет сохраненного предыдущего монтажа для возврата")
+
+            prev_dict = prev if isinstance(prev, dict) else (json.loads(prev) if prev else {})
+            restored_sku = prev_dict.get("selected_sku") or row.get("selected_sku") or "551000"
+            restored_bundle = prev_dict.get("selected_bundle") or row.get("selected_bundle")
+            restored_img = prev_dict.get("last_rendered_image_url") or row.get("last_rendered_image_url")
+            restored_before = prev_dict.get("before_image_url") or row.get("before_image_url")
+
+            cur.execute(
+                """
+                UPDATE user_sessions_leads
+                SET selected_sku = %s,
+                    selected_bundle = %s,
+                    last_rendered_image_url = %s,
+                    before_image_url = %s,
+                    current_step = 'MONTAGE_RESTORED',
+                    updated_at = NOW()
+                WHERE tg_user_id = %s;
+                """,
+                (
+                    restored_sku,
+                    json.dumps(restored_bundle, ensure_ascii=False) if restored_bundle else None,
+                    restored_img,
+                    restored_before,
+                    tg_id
+                )
+            )
+
+            # Fetch product details for restored caption
+            cur.execute(
+                "SELECT name, system_code, color FROM products WHERE sku = %s LIMIT 1;",
+                (restored_sku,)
+            )
+            prod = cur.fetchone()
+            prod_name = prod["name"] if prod else f"Диспенсер Tork (арт. {restored_sku})"
+            prod_system = prod["system_code"] if prod else "H1"
+            prod_color = prod["color"] if prod else "white"
+
+            color_map = {
+                "white": "Белый",
+                "black": "Черный",
+                "stainless_steel": "Нержавеющая сталь",
+                "none": "Стандарт"
+            }
+            color_ru = color_map.get((prod_color or "").lower(), prod_color or "Белый")
+
+            logger.info(f"Restored previous montage for manager {tg_id}: SKU {restored_sku} (0 tokens consumed)")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error restoring montage for {tg_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
+
+    if req.callback_query_id:
+        answer_telegram_callback(req.callback_query_id, text="Предыдущий монтаж успешно возвращен!")
+
+    caption = (
+        f"✨ <b>Визуализация санузла возвращена!</b>\n\n"
+        f"• Диспенсер: <b>{prod_name}</b>\n"
+        f"• Артикул: <code>{restored_sku}</code>\n"
+        f"• Система: <b>{prod_system}</b> ({color_ru})\n\n"
+        f"<i>Монтаж восстановлен из сессии без повторного расхода токенов.</i>"
+    )
+
+    result_keyboard = {
+        "inline_keyboard": [
+            [
+                {
+                    "text": "📊 Скачать презентацию (PDF)",
+                    "callback_data": "download_presentation"
+                }
+            ],
+            [
+                {
+                    "text": "🔄 Выбрать другой диспенсер",
+                    "callback_data": "change_dispenser"
+                }
+            ]
+        ]
+    }
+
+    if req.send_to_telegram and restored_img:
+        send_telegram_photo(target_chat_id, restored_img, caption=caption, reply_markup=result_keyboard)
+
+    return {
+        "ok": True,
+        "status": "restored",
+        "telegram_id": tg_id,
+        "restored_sku": restored_sku,
+        "system_code": prod_system,
+        "has_rendered_image": bool(restored_img),
+        "tokens_consumed": 0,
+        "ai_recomputed": False,
+        "current_step": "MONTAGE_RESTORED",
+        "caption": caption,
+        "reply_markup": result_keyboard
+    }
+
+
+@router.get("/restore-montage")
+def restore_montage_get(telegram_id: int, send_to_telegram: Optional[bool] = False):
+    """Convenience GET endpoint to trigger restore-montage."""
+    return restore_montage(RestoreMontageRequest(telegram_id=telegram_id, send_to_telegram=send_to_telegram))
+
+
