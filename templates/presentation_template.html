@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Презентация решения Tork: {{ system_name }}</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 10mm 12mm 10mm 12mm;
+    }
+    *, *::before, *::after {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: #FFFFFF;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: #1E293B;
+      font-size: 10.5px;
+      line-height: 1.35;
+      overflow: hidden;
+    }
+
+    .page-wrapper {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      max-height: 275mm;
+      overflow: hidden;
+    }
+
+    /* =========================================================================
+       1. HEADER BLOCK
+       ========================================================================= */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 2.5px solid #003865;
+      padding-bottom: 8px;
+      margin-bottom: 12px;
+      flex-shrink: 0;
+    }
+    .header-main {
+      flex: 1;
+    }
+    .header-title {
+      font-size: 21px;
+      font-weight: 900;
+      color: #003865;
+      letter-spacing: -0.3px;
+      margin: 0 0 3px 0;
+      line-height: 1.15;
+    }
+    .header-subtitle {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #009FDA;
+      margin: 0;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .brand-badge {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      flex-shrink: 0;
+    }
+    .tork-logo {
+      background: #003865;
+      color: #FFFFFF;
+      font-size: 18px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      padding: 4px 12px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      display: inline-block;
+    }
+    .tork-subline {
+      font-size: 8px;
+      color: #64748B;
+      font-weight: 600;
+      margin-top: 3px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* =========================================================================
+       2. MAIN CONTENT GRID (2 COLUMNS)
+       ========================================================================= */
+    .content-grid {
+      display: grid;
+      grid-template-columns: 86mm 1fr;
+      gap: 12mm;
+      align-items: start; /* Natural top alignment, no artificial stretching! */
+      margin-bottom: 12px;
+    }
+
+    /* LEFT COLUMN: REAL BEFORE & AFTER PHOTOS */
+    .left-column {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .photo-card {
+      background: #F8FAFC;
+      border: 1px solid #CBD5E1;
+      border-radius: 6px;
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+    }
+    .photo-card.tork-accent {
+      border: 1.5px solid #009FDA;
+      background: #F0F9FF;
+    }
+
+    .photo-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+    .photo-label {
+      font-size: 9.5px;
+      font-weight: 700;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .photo-label.tork {
+      color: #003865;
+      font-weight: 800;
+    }
+    .photo-badge {
+      font-size: 8px;
+      font-weight: 700;
+      padding: 1.5px 5px;
+      border-radius: 8px;
+      background: #E2E8F0;
+      color: #475569;
+    }
+    .photo-badge.active {
+      background: #003865;
+      color: #FFFFFF;
+    }
+
+    .photo-frame {
+      width: 100%;
+      height: 56mm; /* Harmonic proportion for A4 */
+      border-radius: 4px;
+      overflow: hidden;
+      background: #E2E8F0;
+      border: 1px solid #94A3B8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    .photo-frame img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .solution-quote {
+      background: #F8FAFC;
+      border-left: 3px solid #003865;
+      border-radius: 0 4px 4px 0;
+      padding: 6px 8px;
+      font-size: 8.5px;
+      color: #334155;
+      line-height: 1.35;
+    }
+    .solution-quote strong {
+      color: #003865;
+    }
+
+    /* RIGHT COLUMN: 5 HARMONIOUS COMPACT VALUE ARGUMENTS */
+    .right-column {
+      display: flex;
+      flex-direction: column;
+      gap: 8px; /* Harmonic compact gap — NOT stretched! */
+      justify-content: flex-start; /* Natural top flow */
+    }
+
+    .argument-card {
+      background: #FFFFFF;
+      border: 1px solid #E2E8F0;
+      border-radius: 6px;
+      padding: 7px 10px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+    }
+    .argument-card:nth-child(1) {
+      border-left: 3.5px solid #009FDA;
+      background: linear-gradient(90deg, #F0F9FF 0%, #FFFFFF 35%);
+    }
+    .argument-card:nth-child(2) {
+      border-left: 3.5px solid #0284C7;
+    }
+    .argument-card:nth-child(3) {
+      border-left: 3.5px solid #003865;
+    }
+    .argument-card:nth-child(4) {
+      border-left: 3.5px solid #0D9488;
+    }
+    .argument-card:nth-child(5) {
+      border-left: 3.5px solid #4F46E5;
+    }
+
+    .arg-icon-wrapper {
+      font-size: 17px;
+      line-height: 1;
+      width: 28px;
+      height: 28px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #F8FAFC;
+      border-radius: 5px;
+      border: 1px solid #E2E8F0;
+      margin-top: 1px;
+    }
+    .arg-body {
+      flex: 1;
+    }
+    .arg-title {
+      font-size: 11px;
+      font-weight: 800;
+      color: #003865;
+      margin: 0 0 2px 0;
+      letter-spacing: -0.1px;
+    }
+    .arg-desc {
+      font-size: 9.2px;
+      color: #334155;
+      margin: 0;
+      line-height: 1.35;
+    }
+
+    /* =========================================================================
+       3. TRUST BADGES STRIP (HARMONIC FILLER INSTEAD OF EMPTY AIR)
+       ========================================================================= */
+    .trust-strip {
+      background: #F8FAFC;
+      border: 1px solid #E2E8F0;
+      border-radius: 6px;
+      padding: 7px 12px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-top: auto; /* Pushes cleanly to bottom */
+      margin-bottom: 8px;
+      flex-shrink: 0;
+    }
+    .trust-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 8.5px;
+      color: #334155;
+    }
+    .trust-icon {
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+    .trust-item strong {
+      color: #003865;
+      font-weight: 700;
+    }
+
+    /* =========================================================================
+       4. FOOTER BLOCK
+       ========================================================================= */
+    .footer {
+      border-top: 1px solid #CBD5E1;
+      padding-top: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 8px;
+      color: #64748B;
+      flex-shrink: 0;
+    }
+    .footer strong {
+      color: #003865;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="page-wrapper">
+
+    <!-- 1. HEADER -->
+    <header class="header">
+      <div class="header-main">
+        <h1 class="header-title">Переход на систему {{ system_name }}</h1>
+        <p class="header-subtitle">{{ tagline }}</p>
+      </div>
+      <div class="brand-badge">
+        <div class="tork-logo">TORK</div>
+        <div class="tork-subline">Essity Professional Hygiene</div>
+      </div>
+    </header>
+
+    <!-- 2. MAIN 2-COLUMN GRID (COMPACT & HARMONIOUS) -->
+    <main class="content-grid">
+
+      <!-- LEFT: REAL BEFORE & AFTER PHOTOS -->
+      <section class="left-column">
+        
+        <!-- BEFORE: REAL CLIENT ROOM PHOTO -->
+        <div class="photo-card">
+          <div class="photo-header">
+            <span class="photo-label">Текущая ситуация</span>
+            <span class="photo-badge">Фото клиента (До)</span>
+          </div>
+          <div class="photo-frame">
+            <img src="{{ before_image_data_uri }}" alt="Фото объекта клиента (Текущая ситуация)">
+          </div>
+        </div>
+
+        <!-- AFTER: REAL AI MONTAGE FITTING -->
+        <div class="photo-card tork-accent">
+          <div class="photo-header">
+            <span class="photo-label tork">Решение: {{ system_name }}</span>
+            <span class="photo-badge active">AI-монтаж (После)</span>
+          </div>
+          <div class="photo-frame">
+            <img src="{{ after_image_data_uri }}" alt="AI-монтаж Tork (После)">
+          </div>
+        </div>
+
+        <!-- SUMMARY NOTE -->
+        <div class="solution-quote">
+          <strong>Результат:</strong> {{ solution_summary }}
+        </div>
+
+      </section>
+
+      <!-- RIGHT: 5 COMPACT VALUE ARGUMENTS -->
+      <section class="right-column">
+        {% for arg in arguments %}
+          <div class="argument-card">
+            <div class="arg-icon-wrapper">{{ arg.icon }}</div>
+            <div class="arg-body">
+              <div class="arg-title">{{ arg.title }}</div>
+              <div class="arg-desc">{{ arg.description }}</div>
+            </div>
+          </div>
+        {% endfor %}
+      </section>
+
+    </main>
+
+    <!-- 3. TRUST & WARRANTY STRIP -->
+    <div class="trust-strip">
+      <div class="trust-item">
+        <span class="trust-icon">🛡</span>
+        <div><strong>Гарантия 3 года</strong> на корпуса Tork</div>
+      </div>
+      <div class="trust-item">
+        <span class="trust-icon">🔧</span>
+        <div><strong>Бесплатный монтаж</strong> и пусконаладка</div>
+      </div>
+      <div class="trust-item">
+        <span class="trust-icon">🚚</span>
+        <div><strong>Доставка 24 часа</strong> со склада в РК</div>
+      </div>
+      <div class="trust-item">
+        <span class="trust-icon">🎁</span>
+        <div><strong>Тест-драйв 14 дней</strong> на вашем объекте</div>
+      </div>
+    </div>
+
+    <!-- 4. FOOTER -->
+    <footer class="footer">
+      <div>
+        <strong>Предложение по модернизации: {{ system_name }}</strong> &nbsp;•&nbsp; 
+        Официальный дистрибьютор Tork в Казахстане
+      </div>
+      <div>
+        Tork® — зарегистрированный товарный знак компании Essity &nbsp;•&nbsp; Стр. 1 из 1
+      </div>
+    </footer>
+
+  </div>
+
+</body>
+</html>

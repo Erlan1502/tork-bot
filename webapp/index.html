@@ -80,6 +80,28 @@
           </button>
         </div>
 
+        <!-- TOP APP TABS (Каталог | Прайс-лист | Доступ) -->
+        <div class="flex items-center gap-1 bg-black/20 p-1 rounded-xl mb-2.5 text-xs font-semibold">
+          <button 
+            @click="switchTab('catalog')"
+            :class="activeTab === 'catalog' ? 'bg-sky-500 text-white shadow-sm' : 'text-slate-300 hover:text-white'"
+            class="flex-1 py-1.5 px-2 rounded-lg transition text-center flex items-center justify-center gap-1">
+            <span>🛍</span> Каталог
+          </button>
+          <button 
+            @click="switchTab('prices')"
+            :class="activeTab === 'prices' ? 'bg-sky-500 text-white shadow-sm' : 'text-slate-300 hover:text-white'"
+            class="flex-1 py-1.5 px-2 rounded-lg transition text-center flex items-center justify-center gap-1">
+            <span>📊</span> Прайс (XLSX)
+          </button>
+          <button 
+            @click="switchTab('managers')"
+            :class="activeTab === 'managers' ? 'bg-sky-500 text-white shadow-sm' : 'text-slate-300 hover:text-white'"
+            class="flex-1 py-1.5 px-2 rounded-lg transition text-center flex items-center justify-center gap-1">
+            <span>👥</span> Менеджеры
+          </button>
+        </div>
+
         <!-- Search Input -->
         <div class="relative">
           <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
@@ -105,7 +127,7 @@
       </div>
 
       <!-- ZONE TABS (4 зоны) -->
-      <nav v-if="!searchQuery" class="flex border-t border-white/10 overflow-x-auto no-scrollbar bg-tork-dark/70 text-xs font-medium">
+      <nav v-if="activeTab === 'catalog' && !searchQuery" class="flex border-t border-white/10 overflow-x-auto no-scrollbar bg-tork-dark/70 text-xs font-medium">
         <button 
           v-for="zone in zones" 
           :key="zone.id"
@@ -124,7 +146,7 @@
     </header>
 
     <!-- SUB-TYPE FILTER (Диспенсеры | Все | Расходники) -->
-    <div v-if="!searchQuery" class="px-4 py-2.5 bg-white border-b border-slate-200 sticky top-[108px] z-20 shadow-xs">
+    <div v-if="activeTab === 'catalog' && !searchQuery" class="px-4 py-2.5 bg-white border-b border-slate-200 sticky top-[108px] z-20 shadow-xs">
       <div class="flex items-center gap-2">
         <button 
           id="filter-dispenser"
@@ -172,7 +194,7 @@
     </div>
 
     <!-- MAIN PRODUCT CATALOG GRID -->
-    <main class="flex-1 p-3 sm:p-4">
+    <main v-if="activeTab === 'catalog'" class="flex-1 p-3 sm:p-4">
       <!-- Loading State -->
       <div v-if="loading" class="flex flex-col items-center justify-center py-20 text-slate-400">
         <svg class="animate-spin h-8 w-8 text-tork mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -297,6 +319,183 @@
             </div>
           </div>
         </div>
+      </div>
+    </main>
+
+    <!-- ===================================================================== -->
+    <!-- VIEW 2: PRICES MANAGEMENT (SPREADSHEET & XLSX)                        -->
+    <!-- ===================================================================== -->
+    <main v-if="activeTab === 'prices'" class="flex-1 p-3 sm:p-4 bg-slate-50">
+      <div class="max-w-xl mx-auto space-y-3">
+        <!-- Actions Strip -->
+        <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between gap-2">
+          <div>
+            <h2 class="text-xs font-bold text-slate-800">Прайс-лист товаров (₸)</h2>
+            <p class="text-[10px] text-slate-500">Нажмите на цену для быстрого изменения</p>
+          </div>
+          <button 
+            @click="downloadExcelPricelist"
+            class="tap-effect bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2 px-3 rounded-xl flex items-center gap-1.5 shadow-sm transition">
+            <span>📥</span>
+            <span>Скачать XLSX</span>
+          </button>
+        </div>
+
+        <!-- Price Table -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+          <div class="divide-y divide-slate-100">
+            <div 
+              v-for="p in filteredProducts" 
+              :key="'price-' + p.sku"
+              class="p-3 flex items-center justify-between gap-3 hover:bg-slate-50/70 transition">
+              
+              <!-- Left: Image & Info -->
+              <div class="flex items-center gap-2.5 min-w-0">
+                <img :src="p.image_url" :alt="p.name" @error="handleImageError" class="w-10 h-10 object-contain rounded-lg bg-slate-50 border border-slate-100 p-0.5 shrink-0">
+                <div class="min-w-0">
+                  <div class="flex items-center gap-1.5">
+                    <span class="text-[10px] font-mono font-bold text-sky-800 bg-sky-50 px-1.5 py-0.2 rounded">
+                      {{ p.sku }}
+                    </span>
+                    <span v-if="p.system_code" class="text-[10px] font-bold text-slate-600 bg-slate-100 px-1 py-0.2 rounded">
+                      {{ p.system_code }}
+                    </span>
+                  </div>
+                  <h4 class="text-xs font-semibold text-slate-800 truncate mt-0.5">{{ p.name }}</h4>
+                </div>
+              </div>
+
+              <!-- Right: Price & In-Place Edit -->
+              <div class="shrink-0 text-right">
+                <template v-if="editingPriceSku === p.sku">
+                  <div class="flex items-center gap-1">
+                    <input 
+                      v-model="editingPriceVal" 
+                      type="number" 
+                      class="w-20 px-2 py-1 text-xs border border-sky-400 rounded-lg text-right font-bold focus:outline-none focus:ring-1 focus:ring-sky-500"
+                      @keyup.enter="saveProductPrice(p.sku)"
+                      @keyup.esc="cancelEditPrice">
+                    <button 
+                      @click="saveProductPrice(p.sku)" 
+                      :disabled="isSavingPrice"
+                      class="bg-emerald-600 text-white p-1 rounded-lg text-xs font-bold hover:bg-emerald-700">
+                      ✓
+                    </button>
+                    <button 
+                      @click="cancelEditPrice" 
+                      class="bg-slate-200 text-slate-600 p-1 rounded-lg text-xs hover:bg-slate-300">
+                      ✕
+                    </button>
+                  </div>
+                </template>
+                <template v-else>
+                  <button 
+                    @click="startEditPrice(p.sku, p.price)"
+                    class="tap-effect text-xs font-extrabold text-tork bg-sky-50 hover:bg-sky-100 border border-sky-200/80 px-2.5 py-1 rounded-lg flex items-center gap-1">
+                    <span>{{ formatPrice(p.price) }}</span>
+                    <span class="text-[10px] text-sky-600">✏️</span>
+                  </button>
+                </template>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- ===================================================================== -->
+    <!-- VIEW 3: MANAGERS RBAC MANAGEMENT                                      -->
+    <!-- ===================================================================== -->
+    <main v-if="activeTab === 'managers'" class="flex-1 p-3 sm:p-4 bg-slate-50">
+      <div class="max-w-xl mx-auto space-y-3">
+        
+        <!-- Add Manager Form -->
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+          <div class="flex items-center justify-between">
+            <h2 class="text-xs font-bold text-slate-800">➕ Выдать доступ новому менеджеру</h2>
+            <span class="text-[10px] text-sky-600 font-semibold">Telegram ID</span>
+          </div>
+          
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[10px] font-semibold text-slate-500 mb-1">Telegram User ID</label>
+              <input 
+                v-model="newManagerId" 
+                type="number" 
+                placeholder="Например: 123456789" 
+                class="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-400 outline-none">
+            </div>
+            <div>
+              <label class="block text-[10px] font-semibold text-slate-500 mb-1">ФИО сотрудника</label>
+              <input 
+                v-model="newManagerName" 
+                type="text" 
+                placeholder="Иван Петров" 
+                class="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-400 outline-none">
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between gap-2 pt-1">
+            <select 
+              v-model="newManagerRole" 
+              class="px-2.5 py-1.5 text-xs border border-slate-200 rounded-xl bg-slate-50 font-medium text-slate-700 outline-none">
+              <option value="manager">Роль: Менеджер</option>
+              <option value="admin">Роль: Администратор</option>
+            </select>
+            <button 
+              @click="addManager"
+              class="tap-effect bg-tork hover:bg-tork-dark text-white font-bold text-xs py-2 px-4 rounded-xl shadow-sm transition">
+              Предоставить права
+            </button>
+          </div>
+        </div>
+
+        <!-- Managers List -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+          <div class="p-3 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-800">Авторизованные сотрудники ({{ adminManagers.length }})</span>
+            <button @click="loadAdminManagers" class="text-[10px] text-sky-600 font-semibold hover:underline">🔄 Обновить</button>
+          </div>
+
+          <div class="divide-y divide-slate-100">
+            <div 
+              v-for="m in adminManagers" 
+              :key="'mgr-' + m.telegram_id"
+              class="p-3 flex items-center justify-between gap-3">
+              
+              <div>
+                <div class="flex items-center gap-1.5">
+                  <span class="text-xs font-bold text-slate-800">{{ m.full_name }}</span>
+                  <span 
+                    :class="[
+                      'text-[9px] font-bold px-1.5 py-0.2 rounded-md',
+                      m.role === 'superadmin' ? 'bg-purple-100 text-purple-700' : (m.role === 'admin' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-600')
+                    ]">
+                    {{ m.role === 'superadmin' ? 'Директор' : (m.role === 'admin' ? 'Админ' : 'Менеджер') }}
+                  </span>
+                </div>
+                <div class="text-[10px] text-slate-400 font-mono mt-0.5">
+                  ID: {{ m.telegram_id }} <span v-if="m.username">• @{{ m.username }}</span>
+                </div>
+              </div>
+
+              <!-- Toggle Button -->
+              <button 
+                @click="toggleManager(m.telegram_id, m.is_active)"
+                :disabled="m.role === 'superadmin'"
+                :class="[
+                  'tap-effect text-[11px] font-bold px-3 py-1 rounded-full transition shadow-2xs',
+                  m.is_active ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200' : 'bg-red-100 text-red-800 hover:bg-red-200',
+                  m.role === 'superadmin' ? 'opacity-50 cursor-not-allowed' : ''
+                ]">
+                {{ m.is_active ? '● Активен' : '○ Отключен' }}
+              </button>
+
+            </div>
+          </div>
+        </div>
+
       </div>
     </main>
 
@@ -513,6 +712,14 @@
           </template>
         </div>
       </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div 
+      v-if="adminToast" 
+      class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl shadow-2xl text-xs font-bold text-white transition-all pointer-events-none"
+      :class="adminToast.type === 'error' ? 'bg-red-600' : 'bg-emerald-600'">
+      {{ adminToast.msg }}
     </div>
 
   </div>

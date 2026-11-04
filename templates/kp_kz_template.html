@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Коммерческое предложение Tork Казахстан</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 12mm 14mm 12mm 14mm;
+    }
+    *, *::before, *::after {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      color: #1E293B;
+      font-size: 10.5px;
+      line-height: 1.4;
+      background: #FFFFFF;
+    }
+
+    .page {
+      page-break-after: always;
+      min-height: 270mm;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .page:last-child {
+      page-break-after: avoid;
+    }
+
+    /* TOP HEADER */
+    .doc-top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #003865;
+      padding-bottom: 10px;
+      margin-bottom: 16px;
+    }
+    .brand-identity {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .tork-badge {
+      background: #003865;
+      color: #FFFFFF;
+      font-weight: 900;
+      font-size: 22px;
+      letter-spacing: 2px;
+      padding: 4px 14px;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+    .brand-subline {
+      font-size: 10px;
+      color: #475569;
+      font-weight: 600;
+    }
+    .brand-subline span {
+      color: #009FDA;
+      font-weight: 700;
+    }
+    .distributor-tag {
+      text-align: right;
+      font-size: 9.5px;
+      color: #64748B;
+      line-height: 1.35;
+    }
+    .distributor-tag strong {
+      color: #003865;
+      font-size: 11px;
+    }
+
+    /* FOOTER */
+    .page-footer {
+      border-top: 1px solid #E2E8F0;
+      padding-top: 8px;
+      margin-top: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 8.5px;
+      color: #64748B;
+    }
+    .page-footer strong {
+      color: #003865;
+    }
+
+    /* TYPOGRAPHY & ELEMENTS */
+    h1.hero-title {
+      font-size: 26px;
+      font-weight: 900;
+      color: #003865;
+      margin: 0 0 6px 0;
+      line-height: 1.15;
+    }
+    .hero-subtitle {
+      font-size: 13px;
+      color: #475569;
+      margin-bottom: 20px;
+      line-height: 1.45;
+    }
+
+    /* KP SUMMARY CARDS (PAGE 1) */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    .card-total {
+      background: linear-gradient(135deg, #003865 0%, #002244 100%);
+      color: #FFFFFF;
+      border-radius: 8px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .card-total .label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #93C5FD;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .card-total .sum {
+      font-size: 28px;
+      font-weight: 900;
+      color: #38BDF8;
+      margin: 6px 0;
+    }
+    .card-total .sub {
+      font-size: 10px;
+      color: #E2E8F0;
+    }
+
+    .card-terms {
+      background: #F8FAFC;
+      border: 1px solid #E2E8F0;
+      border-radius: 8px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .terms-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      border-bottom: 1px solid #E2E8F0;
+      font-size: 11px;
+    }
+    .terms-row:last-child {
+      border-bottom: none;
+    }
+    .terms-row strong {
+      color: #003865;
+    }
+
+    /* BADGES STRIP (PAGE 1) */
+    .badges-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .badge-box {
+      background: #F0F9FF;
+      border: 1px solid #BAE6FD;
+      border-radius: 6px;
+      padding: 10px;
+      text-align: center;
+    }
+    .badge-box .badge-icon {
+      font-size: 18px;
+      margin-bottom: 4px;
+    }
+    .badge-box .badge-title {
+      font-size: 10px;
+      font-weight: 800;
+      color: #003865;
+    }
+    .badge-box .badge-desc {
+      font-size: 8.5px;
+      color: #475569;
+      margin-top: 2px;
+    }
+
+    /* CLIENT & MANAGER INFO */
+    .meta-details-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      background: #F8FAFC;
+      border-left: 3.5px solid #009FDA;
+      border-radius: 0 6px 6px 0;
+      padding: 12px 16px;
+      margin-bottom: 20px;
+      font-size: 10.5px;
+    }
+    .meta-details-grid strong {
+      color: #003865;
+    }
+
+    /* TABLES (PAGE 2) */
+    .section-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: #003865;
+      margin: 0 0 10px 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section-title::before {
+      content: "";
+      width: 4px;
+      height: 14px;
+      background: #009FDA;
+      border-radius: 2px;
+      display: inline-block;
+    }
+
+    table.data-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 16px;
+      font-size: 10px;
+    }
+    table.data-table th {
+      background: #003865;
+      color: #FFFFFF;
+      font-weight: 700;
+      padding: 7px 9px;
+      text-align: left;
+    }
+    table.data-table td {
+      padding: 7px 9px;
+      border-bottom: 1px solid #E2E8F0;
+      vertical-align: middle;
+    }
+    table.data-table tr:nth-child(even) td {
+      background: #F8FAFC;
+    }
+    .text-center { text-align: center; }
+    .text-right { text-align: right; }
+
+    /* WORKFLOW STEPS (PAGE 4) */
+    .steps-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .step-card {
+      background: #FFFFFF;
+      border: 1px solid #E2E8F0;
+      border-radius: 6px;
+      padding: 10px 12px;
+    }
+    .step-num {
+      display: inline-block;
+      width: 22px;
+      height: 22px;
+      background: #003865;
+      color: #FFFFFF;
+      font-weight: 800;
+      font-size: 11px;
+      text-align: center;
+      line-height: 22px;
+      border-radius: 50%;
+      margin-bottom: 6px;
+    }
+    .step-card h4 {
+      margin: 0 0 4px 0;
+      font-size: 11px;
+      font-weight: 800;
+      color: #003865;
+    }
+    .step-card p {
+      margin: 0;
+      font-size: 9.5px;
+      color: #475569;
+      line-height: 1.35;
+    }
+
+    .contacts-panel {
+      background: #F0F9FF;
+      border: 1.5px solid #009FDA;
+      border-radius: 8px;
+      padding: 14px 18px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      align-items: center;
+    }
+    .contacts-panel h3 {
+      font-size: 14px;
+      font-weight: 900;
+      color: #003865;
+      margin: 0 0 4px 0;
+    }
+    .contacts-panel p {
+      font-size: 10px;
+      color: #334155;
+      margin: 0;
+    }
+    .manager-card {
+      background: #FFFFFF;
+      border: 1px solid #BAE6FD;
+      border-radius: 6px;
+      padding: 10px 14px;
+    }
+    .manager-card .name {
+      font-size: 12px;
+      font-weight: 800;
+      color: #003865;
+    }
+    .manager-card .role {
+      font-size: 9px;
+      color: #64748B;
+      margin-bottom: 6px;
+    }
+    .manager-card .phone {
+      font-size: 11px;
+      font-weight: 700;
+      color: #009FDA;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ======================================================================= -->
+  <!-- PAGE 1: ТИТУЛЬНЫЙ ЛИСТ И КЛЮЧЕВЫЕ УСЛОВИЯ                               -->
+  <!-- ======================================================================= -->
+  <div class="page">
+    <div>
+      <div class="doc-top-bar">
+        <div class="brand-identity">
+          <div class="tork-badge">TORK</div>
+          <div class="brand-subline">
+            Профессиональные гигиенические решения<br>
+            <span>Essity Professional Hygiene</span>
+          </div>
+        </div>
+        <div class="distributor-tag">
+          <strong>Официальный дистрибьютор Tork в Казахстане</strong><br>
+          Поставка со склада • Сервис • Гарантия 3 года
+        </div>
+      </div>
+
+      <h1 class="hero-title">Диспенсеры и системы Tork<br>для {{ client_name }}</h1>
+      <p class="hero-subtitle">
+        Комплексное оснащение санузлов и рабочих зон объекта: полистовая подача, премиальный дизайн Elevation, 
+        сокращение эксплуатационных расходов до 40% и бесплатный сервис.
+      </p>
+
+      <div class="summary-grid">
+        <div class="card-total">
+          <div>
+            <div class="label">Итого по предложению</div>
+            <div class="sum">{{ total_amount_formatted }} ₸</div>
+            <div class="sub">Включая НДС 12% • {{ total_dispensers_count }} единиц оборудования</div>
+          </div>
+        </div>
+
+        <div class="card-terms">
+          <div class="terms-row">
+            <span>Предоплата (50%):</span>
+            <strong>{{ prepayment_amount_formatted }} ₸</strong>
+          </div>
+          <div class="terms-row">
+            <span>Остаток (50%):</span>
+            <strong>{{ postpayment_amount_formatted }} ₸ (по факту поставки)</strong>
+          </div>
+          <div class="terms-row">
+            <span>Срок отгрузки:</span>
+            <strong>24–48 часов со склада</strong>
+          </div>
+          <div class="terms-row">
+            <span>Монтаж и пусконаладка:</span>
+            <strong style="color: #0D9488;">0 ₸ (Бесплатно)</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="badges-strip">
+        <div class="badge-box">
+          <div class="badge-icon">📦</div>
+          <div class="badge-title">Все в наличии</div>
+          <div class="badge-desc">Складской запас в Казахстане</div>
+        </div>
+        <div class="badge-box">
+          <div class="badge-icon">🚚</div>
+          <div class="badge-title">Бесплатная доставка</div>
+          <div class="badge-desc">До двери вашего объекта</div>
+        </div>
+        <div class="badge-box">
+          <div class="badge-icon">🔧</div>
+          <div class="badge-title">Бесплатный монтаж</div>
+          <div class="badge-desc">Установка и обучение клинеров</div>
+        </div>
+        <div class="badge-box">
+          <div class="badge-icon">🛡</div>
+          <div class="badge-title">Гарантия 3 года</div>
+          <div class="badge-desc">Бесплатная замена при поломке</div>
+        </div>
+      </div>
+
+      <div class="meta-details-grid">
+        <div>
+          <div><strong>Заказчик / Объект:</strong> {{ client_name }} ({{ client_facility }})</div>
+          <div><strong>Город / Локация:</strong> {{ client_city }}, Казахстан</div>
+        </div>
+        <div>
+          <div><strong>Ваш менеджер:</strong> {{ manager_name }}</div>
+          <div><strong>Контакты:</strong> {{ manager_phone }} &nbsp;|&nbsp; Telegram: {{ manager_tg }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="page-footer">
+      <div>Официальный дилер Tork в Казахстане &nbsp;•&nbsp; КП для {{ client_name }} от {{ kp_date }}</div>
+      <div>Стр. 1 из 3</div>
+    </div>
+  </div>
+
+  <!-- ======================================================================= -->
+  <!-- PAGE 2: СПЕЦИФИКАЦИЯ ОБОРУДОВАНИЯ И РАСХОДНЫХ МАТЕРИАЛОВ                -->
+  <!-- ======================================================================= -->
+  <div class="page">
+    <div>
+      <div class="doc-top-bar">
+        <div class="brand-identity">
+          <div class="tork-badge">TORK</div>
+          <div class="brand-subline">Спецификация и расчет стоимости</div>
+        </div>
+        <div class="distributor-tag">
+          <strong>Цены в тенге (₸) с НДС 12%</strong>
+        </div>
+      </div>
+
+      <div class="section-title">1. Настенное оборудование (Диспенсеры)</div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width: 70px;">Артикул</th>
+            <th>Наименование и характеристики</th>
+            <th style="width: 60px;" class="text-center">Система</th>
+            <th style="width: 50px;" class="text-center">Кол-во</th>
+            <th style="width: 80px;" class="text-right">Цена, ₸</th>
+            <th style="width: 90px;" class="text-right">Сумма, ₸</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in dispenser_items %}
+          <tr>
+            <td><strong>{{ item.sku }}</strong></td>
+            <td>
+              <strong>{{ item.name }}</strong><br>
+              <span style="color: #64748B; font-size: 8.5px;">{{ item.color }} • {{ item.dimensions }}</span>
+            </td>
+            <td class="text-center"><strong>{{ item.system_code }}</strong></td>
+            <td class="text-center">{{ item.count }} шт.</td>
+            <td class="text-right">{{ item.price_formatted }}</td>
+            <td class="text-right"><strong>{{ item.total_formatted }}</strong></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <div class="section-title">2. Рекомендуемые расходные материалы к выбранным системам</div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width: 70px;">Артикул</th>
+            <th>Наименование расходного материала</th>
+            <th style="width: 60px;" class="text-center">К системе</th>
+            <th style="width: 90px;" class="text-center">Фасовка</th>
+            <th style="width: 90px;" class="text-right">Цена с НДС, ₸</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for ref in refill_items %}
+          <tr>
+            <td><strong>{{ ref.sku }}</strong></td>
+            <td>
+              <strong>{{ ref.name }}</strong><br>
+              <span style="color: #64748B; font-size: 8.5px;">{{ ref.quality }} • {{ ref.description }}</span>
+            </td>
+            <td class="text-center"><strong>{{ ref.system_code }}</strong></td>
+            <td class="text-center">{{ ref.packaging }}</td>
+            <td class="text-right"><strong>{{ ref.price_formatted }}</strong></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <div style="font-size: 9px; color: #64748B; margin-top: -6px; margin-bottom: 14px;">
+        * Расходные материалы поставляются регулярно по утвержденному графику. Минимальный заказ — от 1 коробки.
+      </div>
+    </div>
+
+    <div class="page-footer">
+      <div>Официальный дилер Tork в Казахстане &nbsp;•&nbsp; КП для {{ client_name }} от {{ kp_date }}</div>
+      <div>Стр. 2 из 3</div>
+    </div>
+  </div>
+
+  <!-- ======================================================================= -->
+  <!-- PAGE 3: РЕГЛАМЕНТ РАБОТЫ, УСЛОВИЯ И КОНТАКТЫ                            -->
+  <!-- ======================================================================= -->
+  <div class="page">
+    <div>
+      <div class="doc-top-bar">
+        <div class="brand-identity">
+          <div class="tork-badge">TORK</div>
+          <div class="brand-subline">Порядок сотрудничества и сервис</div>
+        </div>
+        <div class="distributor-tag">
+          <strong>Essity Professional Hygiene</strong>
+        </div>
+      </div>
+
+      <div class="section-title">Порядок внедрения системы (6 простых шагов)</div>
+      <div class="steps-grid">
+        <div class="step-card">
+          <div class="step-num">1</div>
+          <h4>Согласование</h4>
+          <p>Фиксируем спецификацию, цвета и даты отгрузки на ваш объект.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-num">2</div>
+          <h4>Договор и аванс</h4>
+          <p>Подписываем официальный договор поставки, предоплата 50%.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-num">3</div>
+          <h4>Доставка 24 часа</h4>
+          <p>Привозим весь объем оборудования с центрального склада в Казахстане.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-num">4</div>
+          <h4>Бесплатный монтаж</h4>
+          <p>Наши техники крепят диспенсеры по нормам эргономики и обучают персонал.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-num">5</div>
+          <h4>Оплата остатка</h4>
+          <p>Окончательный расчет (50%) только после подписания акта приемки.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-num">6</div>
+          <h4>Сервис и гарантия</h4>
+          <p>Регулярные поставки расходников, гарантия 3 года на корпуса диспенсеров.</p>
+        </div>
+      </div>
+
+      <div class="contacts-panel">
+        <div>
+          <h3>Готовы ответить на вопросы и провести тест-драйв</h3>
+          <p>
+            Мы можем привезти образцы диспенсеров на ваш объект для бесплатного тестирования на 14 дней.
+          </p>
+        </div>
+        <div class="manager-card">
+          <div class="name">{{ manager_name }}</div>
+          <div class="role">Ведущий специалист по корпоративным клиентам</div>
+          <div class="phone">{{ manager_phone }}</div>
+          <div style="font-size: 9.5px; color: #475569; margin-top: 4px;">
+            Telegram: <strong>{{ manager_tg }}</strong> &nbsp;|&nbsp; WhatsApp: <strong>{{ manager_phone }}</strong>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top: 14px; font-size: 8.5px; color: #64748B; line-height: 1.4;">
+        Цены указаны в тенге с учетом НДС 12% и действительны в течение 14 календарных дней. Оборудование Tork сертифицировано в соответствии с регламентами Таможенного союза и Минздрава Республики Казахстан.
+      </div>
+    </div>
+
+    <div class="page-footer">
+      <div>Официальный дилер Tork в Казахстане &nbsp;•&nbsp; КП для {{ client_name }} от {{ kp_date }}</div>
+      <div>Стр. 3 из 3</div>
+    </div>
+  </div>
+
+</body>
+</html>
+

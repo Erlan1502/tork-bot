@@ -8,6 +8,7 @@ from app.routers.orders_router import router as orders_router
 from app.routers.analytics_router import router as analytics_router
 from app.routers.products_admin_router import router as products_admin_router
 from app.routers.manager_router import router as manager_router
+from app.routers.admin_tg_router import router as admin_tg_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -37,6 +38,7 @@ app.include_router(orders_router)
 app.include_router(analytics_router)
 app.include_router(products_admin_router)
 app.include_router(manager_router)
+app.include_router(admin_tg_router)
 
 # Healthcheck
 @app.get("/health", tags=["System"])

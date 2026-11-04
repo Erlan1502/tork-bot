@@ -19,6 +19,15 @@ createApp({
       isSubmitting: false,
       submittedSelectionData: null,
       copiedPayload: false,
+      activeTab: 'catalog', // 'catalog' | 'prices' | 'managers'
+      adminManagers: [],
+      newManagerId: '',
+      newManagerName: '',
+      newManagerRole: 'manager',
+      isSavingPrice: false,
+      editingPriceSku: null,
+      editingPriceVal: null,
+      adminToast: null,
       zones: [
         { id: 'zone_wash', label: 'Мытье рук', icon: '🧼' },
         { id: 'zone_toilet', label: 'Туалетная', icon: '🚽' },
@@ -362,6 +371,117 @@ createApp({
           // Ignore
         }
       }
+    },
+
+    switchTab(tab) {
+      this.activeTab = tab;
+      this.haptic('selection');
+      if (tab === 'managers') {
+        this.loadAdminManagers();
+      }
+    },
+
+    async loadAdminManagers() {
+      try {
+        const resp = await fetch('/api/admin-tg/managers');
+        if (resp.ok) {
+          this.adminManagers = await resp.json();
+        }
+      } catch (e) {
+        console.error('Failed to load managers:', e);
+      }
+    },
+
+    async addManager() {
+      if (!this.newManagerId || !this.newManagerName) {
+        this.showAdminToast('Укажите Telegram ID и ФИО', 'error');
+        return;
+      }
+      try {
+        const resp = await fetch('/api/admin-tg/managers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            telegram_id: parseInt(this.newManagerId),
+            full_name: this.newManagerName.trim(),
+            role: this.newManagerRole
+          })
+        });
+        if (resp.ok) {
+          this.showAdminToast('✅ Менеджер успешно добавлен!');
+          this.newManagerId = '';
+          this.newManagerName = '';
+          this.loadAdminManagers();
+        } else {
+          this.showAdminToast('Ошибка добавления менеджера', 'error');
+        }
+      } catch (e) {
+        this.showAdminToast('Сетевая ошибка: ' + e.message, 'error');
+      }
+    },
+
+    async toggleManager(tgId, currentStatus) {
+      try {
+        const resp = await fetch(`/api/admin-tg/managers/${tgId}/toggle`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ is_active: !currentStatus })
+        });
+        if (resp.ok) {
+          this.showAdminToast(currentStatus ? 'Доступ приостановлен' : 'Доступ активирован');
+          this.loadAdminManagers();
+        }
+      } catch (e) {
+        this.showAdminToast('Ошибка смены статуса', 'error');
+      }
+    },
+
+    startEditPrice(sku, currentPrice) {
+      this.editingPriceSku = sku;
+      this.editingPriceVal = Math.round(currentPrice || 0);
+    },
+
+    cancelEditPrice() {
+      this.editingPriceSku = null;
+      this.editingPriceVal = null;
+    },
+
+    async saveProductPrice(sku) {
+      if (this.editingPriceVal === null || isNaN(this.editingPriceVal)) return;
+      this.isSavingPrice = true;
+      try {
+        const resp = await fetch(`/api/admin-tg/prices/${sku}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ price_kzt: parseFloat(this.editingPriceVal) })
+        });
+        if (resp.ok) {
+          const res = await resp.json();
+          const prod = this.products.find(p => p.sku === sku);
+          if (prod) {
+            prod.price = res.product.price_kzt;
+          }
+          this.showAdminToast(`✅ Цена SKU ${sku} обновлена!`);
+          this.editingPriceSku = null;
+          this.editingPriceVal = null;
+        } else {
+          this.showAdminToast('Ошибка сохранения цены', 'error');
+        }
+      } catch (e) {
+        this.showAdminToast('Ошибка: ' + e.message, 'error');
+      } finally {
+        this.isSavingPrice = false;
+      }
+    },
+
+    downloadExcelPricelist() {
+      window.open('/api/admin-tg/prices/export-excel', '_blank');
+    },
+
+    showAdminToast(msg, type = 'success') {
+      this.adminToast = { msg, type };
+      this.haptic(type === 'error' ? 'error' : 'success');
+      setTimeout(() => { this.adminToast = null; }, 3000);
     }
   }
 }).mount('#app');
