@@ -551,7 +551,8 @@ def get_default_kp_form_values(telegram_id: int) -> Dict[str, Any]:
         "company_name": session.get("company_name") or "",
         "client_facility": session.get("client_facility") or "Гостиничный комплекс, 5 этажей, 42 санузла",
         "has_montage_image": bool(session.get("last_rendered_image_url")),
-        "selected_sku": session.get("selected_sku") or "551000"
+        "selected_sku": session.get("selected_sku") or "551000",
+        "selected_bundle": session.get("selected_bundle") or []
     }
 
 

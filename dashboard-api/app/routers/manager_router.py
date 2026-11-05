@@ -319,7 +319,7 @@ def audit_washroom_and_reason_actions(user_photo_b64: str, items: List[KitItem])
         '  ],\n'
         '  "preserved_equipment": ["..."],\n'
         '  "telegram_audit_html": "HTML formatted text in Russian for Telegram: list of 🔄 Замены, ➕ Дооснащения, and 🛡️ Сохранено",\n'
-        '  "generation_instructions": "Clear, precise English instructions for image inpainting detailing what to ERASE and where to MOUNT each Tork SKU"\n'
+        '  "generation_instructions": "Clear, precise English instructions for image inpainting detailing what to ERASE and where to MOUNT each Tork SKU. Must explicitly instruct to strictly preserve the exact full-room camera framing and wide-angle borders without zooming in or cropping any surrounding areas (e.g., keep the toilet on the left and full vanity intact)."\n'
         "}\n"
     )
 
@@ -359,6 +359,23 @@ def audit_washroom_and_reason_actions(user_photo_b64: str, items: List[KitItem])
     return {}
 
 
+def get_closest_gemini_aspect_ratio(width: int, height: int) -> str:
+    r = width / height
+    ratios = {
+        "9:16": 9 / 16,     # 0.5625
+        "2:3": 2 / 3,       # 0.6667
+        "3:4": 3 / 4,       # 0.75
+        "4:5": 4 / 5,       # 0.80
+        "1:1": 1.0,         # 1.00
+        "5:4": 5 / 4,       # 1.25
+        "4:3": 4 / 3,       # 1.3333
+        "3:2": 3 / 2,       # 1.50
+        "16:9": 16 / 9,     # 1.7778
+        "21:9": 21 / 9      # 2.3333
+    }
+    return min(ratios.keys(), key=lambda k: abs(ratios[k] - r))
+
+
 def call_gemini_photorealistic_fitting(
     user_photo_b64: str,
     items: List[KitItem],
@@ -374,6 +391,20 @@ def call_gemini_photorealistic_fitting(
     if not api_key:
         logger.warning("VLM_API_KEY not configured for Gemini fitting")
         return None
+
+    # 1. Inspect original user photo dimensions to match aspect ratio exactly
+    orig_w, orig_h = None, None
+    chosen_aspect_ratio = "3:4"
+    try:
+        raw_b64 = user_photo_b64
+        if "," in raw_b64:
+            raw_b64 = raw_b64.split(",", 1)[1]
+        user_img = Image.open(io.BytesIO(base64.b64decode(raw_b64)))
+        orig_w, orig_h = user_img.size
+        chosen_aspect_ratio = get_closest_gemini_aspect_ratio(orig_w, orig_h)
+        logger.info(f"Original user photo size: {orig_w}x{orig_h}, aspect ratio: {round(orig_w/orig_h, 3)}, Gemini target aspect ratio: {chosen_aspect_ratio}")
+    except Exception as e:
+        logger.warning(f"Could not parse user photo dimensions: {e}")
 
     product_parts = []
     default_instructions = []
@@ -442,12 +473,15 @@ def call_gemini_photorealistic_fitting(
         "You are an expert commercial architectural CGI visualizer for Tork (Essity).\n"
         "Task: Photorealistically edit the commercial washroom interior shown in the first image to mount and place the selected Tork hygiene equipment from the subsequent reference images.\n\n"
         f"{instructions_text}\n\n"
-        "Critical Requirements:\n"
+        "CRITICAL REQUIREMENTS:\n"
+        "- STRICT CAMERA FRAMING AND FIELD OF VIEW: You MUST strictly preserve 100% of the wide-angle camera view, framing, zoom level, and outer borders of the first image.\n"
+        "- DO NOT crop, DO NOT zoom in, DO NOT pan, and DO NOT change the perspective or field of view.\n"
+        "- Every element and fixture from the original photo (such as the toilet and wood partition on the far left, the full sink vanity basin, mirror, and marble floor at the bottom) MUST remain completely visible in the exact same positions as in the first image.\n"
         "- If replacing existing equipment (such as an old electric hand dryer, outdated dispenser, soap bottle, or trash bin), ERASE the old item completely and reconstruct the wall tile, reflection, and grout seams flawlessly.\n"
         "- Strictly preserve the client's real room architecture: sink basin, vanity counter, faucets, mirrors, ceiling spotlights, wall tiling, and floor MUST remain identical.\n"
         "- DO NOT paste raw white image rectangles, borders or stickers. Seamlessly composite and render the 3D products as if physically installed in the room.\n"
         "- Match room lighting: cast realistic soft contact drop shadows onto the walls and floor matching ceiling spotlights and wall lights.\n"
-        "- Return ONLY the photorealistic final image."
+        "- Return ONLY the photorealistic final image with the exact same wide-angle framing."
     )
 
     payload = {
@@ -461,7 +495,10 @@ def call_gemini_photorealistic_fitting(
             }
         ],
         "generationConfig": {
-            "responseModalities": ["IMAGE"]
+            "responseModalities": ["IMAGE"],
+            "imageConfig": {
+                "aspectRatio": chosen_aspect_ratio
+            }
         }
     }
 
@@ -472,15 +509,27 @@ def call_gemini_photorealistic_fitting(
         headers={"Content-Type": "application/json"}
     )
     try:
-        logger.info(f"Calling Gemini 3.1 Flash Image with {len(product_parts)} product reference images and smart reasoning...")
+        logger.info(f"Calling Gemini 3.1 Flash Image (aspectRatio={chosen_aspect_ratio}) with {len(product_parts)} product reference images and smart reasoning...")
         with urllib.request.urlopen(req, timeout=90) as resp:
             res_data = json.loads(resp.read().decode("utf-8"))
             parts = res_data.get("candidates", [{}])[0].get("content", {}).get("parts", [])
             for p in parts:
                 d = p.get("inlineData") or p.get("inline_data")
                 if d and d.get("data"):
+                    gen_b64 = d["data"]
+                    if orig_w and orig_h:
+                        try:
+                            gen_img = Image.open(io.BytesIO(base64.b64decode(gen_b64)))
+                            if gen_img.size != (orig_w, orig_h):
+                                logger.info(f"Resizing generated image from {gen_img.size} to original photo dimensions ({orig_w}, {orig_h}) to guarantee exact 1:1 match")
+                                resized_img = gen_img.resize((orig_w, orig_h), Image.Resampling.LANCZOS)
+                                out_buffer = io.BytesIO()
+                                resized_img.save(out_buffer, format="JPEG", quality=95)
+                                gen_b64 = base64.b64encode(out_buffer.getvalue()).decode("utf-8")
+                        except Exception as resize_err:
+                            logger.warning(f"Failed to resize generated image: {resize_err}")
                     logger.info("Gemini 3.1 Flash Image successfully generated photorealistic fitting!")
-                    return d["data"]
+                    return gen_b64
     except Exception as e:
         logger.error(f"Gemini 3.1 Flash Image generation error: {e}")
         return None
@@ -725,8 +774,8 @@ class GenerateKPRequest(BaseModel):
     telegram_id: Optional[int] = None
     tg_user_id: Optional[int] = None
     chat_id: Optional[int] = None
-    company_name: str
-    client_facility: str
+    company_name: Optional[str] = None
+    client_facility: Optional[str] = None
     client_city: Optional[str] = "г. Астана, Казахстан"
     manager_name: Optional[str] = None
     manager_phone: Optional[str] = None
@@ -770,18 +819,19 @@ def generate_kp(req: GenerateKPRequest, format: Optional[str] = None):
     """
     tg_id = req.telegram_id or req.tg_user_id or req.chat_id or 5699064827
 
-    if not req.company_name or not req.company_name.strip():
-        raise HTTPException(status_code=400, detail="Наименование компании клиента обязательно для заполнения")
+    from app.services.presentation_service import get_manager_presentation_data
+    session_data = get_manager_presentation_data(tg_id)
 
-    if not req.client_facility or not req.client_facility.strip():
-        raise HTTPException(status_code=400, detail="Тип объекта и масштаб обязательны для заполнения")
+    comp_name = (req.company_name or "").strip() or session_data.get("company_name") or "ТОО «Заказчик»"
+    facility = (req.client_facility or "").strip() or session_data.get("client_facility") or "Гостиничный комплекс, 5 этажей, 42 санузла"
+    city = (req.client_city or "").strip() or session_data.get("client_city") or "г. Астана, Казахстан"
 
     try:
         pdf_bytes, filename, meta = compile_commercial_proposal_kz(
             telegram_id=tg_id,
-            company_name=req.company_name.strip(),
-            client_facility=req.client_facility.strip(),
-            client_city=req.client_city,
+            company_name=comp_name,
+            client_facility=facility,
+            client_city=city,
             manager_name=req.manager_name,
             manager_phone=req.manager_phone,
             manager_tg=req.manager_tg,
@@ -792,20 +842,36 @@ def generate_kp(req: GenerateKPRequest, format: Optional[str] = None):
         logger.error(f"Failed to compile commercial proposal for manager {tg_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to compile commercial proposal: {e}")
 
-    # Persist updated company_name & facility in session for consistency
+    # Persist updated company_name, facility, and selected_bundle if provided
     try:
         with get_db_cursor() as cur:
-            cur.execute(
-                """
-                UPDATE user_sessions_leads
-                SET company_name = %s,
-                    client_facility = %s,
-                    client_city = %s,
-                    updated_at = NOW()
-                WHERE tg_user_id = %s;
-                """,
-                (req.company_name.strip(), req.client_facility.strip(), req.client_city, tg_id)
-            )
+            if req.items and len(req.items) > 0:
+                primary_sku = str(req.items[0].get("sku", "551000")).strip()
+                cur.execute(
+                    """
+                    UPDATE user_sessions_leads
+                    SET company_name = %s,
+                        client_facility = %s,
+                        client_city = %s,
+                        selected_sku = %s,
+                        selected_bundle = %s::jsonb,
+                        updated_at = NOW()
+                    WHERE tg_user_id = %s;
+                    """,
+                    (comp_name, facility, city, primary_sku, json.dumps(req.items, ensure_ascii=False), tg_id)
+                )
+            else:
+                cur.execute(
+                    """
+                    UPDATE user_sessions_leads
+                    SET company_name = %s,
+                        client_facility = %s,
+                        client_city = %s,
+                        updated_at = NOW()
+                    WHERE tg_user_id = %s;
+                    """,
+                    (comp_name, facility, city, tg_id)
+                )
     except Exception as e:
         logger.warning(f"Could not update session metadata for tg_id {tg_id}: {e}")
 
@@ -818,7 +884,7 @@ def generate_kp(req: GenerateKPRequest, format: Optional[str] = None):
             f"• <b>Сумма:</b> {int(round(meta['total_amount'])):,} ₸ (НДС 16%)\n"
             f"• <b>Предоплата 50%:</b> {int(round(meta['prepayment_amount'])):,} ₸\n"
             f"• <b>Монтаж:</b> 0 ₸ (Бесплатно)\n\n"
-            f"📄 <i>5 страниц А4: титул с фотомонтажом, спецификация с ценами и расходниками, расстановка по объекту, инфографика окупаемости и условия договора.</i>"
+            f"📄 <i>4 страницы А4: титул с фотомонтажом, спецификация с ценами и расходниками, инфографика окупаемости и условия договора.</i>"
         ).replace(",", " ")
         sent = send_telegram_document(target_chat_id, pdf_bytes, filename, caption)
         if req.callback_query_id:
@@ -1127,6 +1193,12 @@ def restore_montage(req: RestoreMontageRequest):
 
     result_keyboard = {
         "inline_keyboard": [
+            [
+                {
+                    "text": "📄 Создать КП (PDF)",
+                    "callback_data": "create_kp"
+                }
+            ],
             [
                 {
                     "text": "📊 Скачать презентацию (PDF)",

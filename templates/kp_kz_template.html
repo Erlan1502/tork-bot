@@ -709,8 +709,7 @@
         </div>
         <div class="distributor-tag">
           <strong>ТОО «Tork Kazakhstan Distribution»</strong><br>
-          Официальный дистрибьютор Tork в Республике Казахстан<br>
-          г. Астана, район Есиль, ул. Достык, 18, БЦ «Москва» • +7 (7172) 79-55-01
+          Официальный дистрибьютор Tork в Республике Казахстан
         </div>
       </div>
 
@@ -730,7 +729,6 @@
         <div>
           <div><strong>Ваш менеджер:</strong> {{ manager_name }}</div>
           <div><strong>Телефон:</strong> {{ manager_phone }}</div>
-          <div><strong>Telegram:</strong> {{ manager_tg }}</div>
         </div>
       </div>
 
@@ -813,7 +811,7 @@
     <!-- FOOTER PAGE 1 -->
     <div class="page-footer">
       <div>ТОО «Tork Kazakhstan Distribution» • Официальный дистрибьютор Tork в Казахстане</div>
-      <div>КП для {{ client_name }} от {{ kp_date }} • Стр. 1 из 5</div>
+      <div>КП для {{ client_name }} от {{ kp_date }} • Стр. 1 из 4</div>
     </div>
   </div>
 
@@ -926,97 +924,12 @@
 
     <div class="page-footer">
       <div>ТОО «Tork Kazakhstan Distribution» • Официальный дистрибьютор Tork в Казахстане</div>
-      <div>КП для {{ client_name }} от {{ kp_date }} • Стр. 2 из 5</div>
+      <div>КП для {{ client_name }} от {{ kp_date }} • Стр. 2 из 4</div>
     </div>
   </div>
 
   <!-- ======================================================================= -->
-  <!-- PAGE 3: РАССТАНОВКА ОБОРУДОВАНИЯ ПО ОБЪЕКТУ                             -->
-  <!-- ======================================================================= -->
-  <div class="page">
-    <div class="page-body">
-      <div class="doc-top-bar">
-        <div class="brand-identity">
-          <div class="tork-badge">TORK</div>
-          <div class="brand-subline">Расстановка оборудования по объекту</div>
-        </div>
-        <div class="distributor-tag">
-          <strong>Монтаж всех {{ total_dispensers_count }} диспенсеров — 0 ₸ (Бесплатно)</strong><br>
-          Профессиональная сервисная служба
-        </div>
-      </div>
-
-      <div class="section-title">План оснащения помещений объекта: {{ client_facility }}</div>
-      <div class="section-desc">
-        Детальная схема распределения диспенсеров по этажам и функциональным зонам. 
-        Установка выполняется в соответствии с международными стандартами эргономики ADA и нормами гигиены.
-      </div>
-
-      <!-- LEGEND OF SKUS -->
-      <div class="legend-bar">
-        {% for item in dispenser_items %}
-        <div class="legend-item">
-          <span class="legend-badge">{{ item.system_code }}</span>
-          <span><strong>{{ item.sku }}</strong>: {{ item.name }}</span>
-        </div>
-        {% endfor %}
-      </div>
-
-      <!-- MATRIX DISTRIBUTION TABLE -->
-      <table class="matrix-table">
-        <thead>
-          <tr>
-            <th class="col-room">Помещение / Локация</th>
-            {% for item in dispenser_items %}
-            <th style="width: 55px;">{{ item.sku }}<br>({{ item.system_code }})</th>
-            {% endfor %}
-            <th style="width: 45px;">Всего</th>
-            <th style="width: 75px;" class="text-right">Сумма с НДС, ₸</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for group in distribution_groups %}
-          <tr class="floor-row">
-            <td colspan="{{ dispenser_items|length + 3 }}">{{ group.floor_title }}</td>
-          </tr>
-            {% for room in group.rooms %}
-            <tr>
-              <td class="col-room">{{ room.room_name }}</td>
-              {% for item in dispenser_items %}
-              <td>{{ room.counts[item.sku] or '—' }}</td>
-              {% endfor %}
-              <td><strong>{{ room.total_units }}</strong></td>
-              <td class="text-right">{{ room.subtotal_formatted }}</td>
-            </tr>
-            {% endfor %}
-          {% endfor %}
-        </tbody>
-        <tfoot>
-          <tr>
-            <td class="col-room">ИТОГО ПО ВСЕМУ ОБЪЕКТУ:</td>
-            {% for item in dispenser_items %}
-            <td>{{ item.count }} шт.</td>
-            {% endfor %}
-            <td>{{ total_dispensers_count }}</td>
-            <td class="text-right">{{ total_amount_formatted }} ₸</td>
-          </tr>
-        </tfoot>
-      </table>
-
-      <div style="background: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 6px; padding: 6px 10px; margin-top: 6px; font-size: 8px; color: #475569; line-height: 1.35;">
-        <strong>Что входит в бесплатный монтаж:</strong> Лазерная разметка высот по стандартам доступности, 
-        сверление кафеля и керамогранита без сколов, антивандальное крепление, заправка расходных материалов и обучение технического персонала правилам обслуживания.
-      </div>
-    </div>
-
-    <div class="page-footer">
-      <div>ТОО «Tork Kazakhstan Distribution» • Официальный дистрибьютор Tork в Казахстане</div>
-      <div>КП для {{ client_name }} от {{ kp_date }} • Стр. 3 из 5</div>
-    </div>
-  </div>
-
-  <!-- ======================================================================= -->
-  <!-- PAGE 4: ИНФОГРАФИКА ПРЕИМУЩЕСТВ ВЫБРАННЫХ СИСТЕМ TORK                    -->
+  <!-- PAGE 3: ИНФОГРАФИКА ПРЕИМУЩЕСТВ ВЫБРАННЫХ СИСТЕМ TORK                    -->
   <!-- ======================================================================= -->
   <div class="page">
     <div class="page-body">
@@ -1164,12 +1077,12 @@
 
     <div class="page-footer">
       <div>ТОО «Tork Kazakhstan Distribution» • Официальный дистрибьютор Tork в Казахстане</div>
-      <div>КП для {{ client_name }} от {{ kp_date }} • Стр. 4 из 5</div>
+      <div>КП для {{ client_name }} от {{ kp_date }} • Стр. 3 из 4</div>
     </div>
   </div>
 
   <!-- ======================================================================= -->
-  <!-- PAGE 5: ПОРЯДОК РАБОТЫ, ОФИЦИАЛЬНЫЕ УСЛОВИЯ И КОНТАКТЫ МЕНЕДЖЕРА         -->
+  <!-- PAGE 4: ПОРЯДОК РАБОТЫ, ОФИЦИАЛЬНЫЕ УСЛОВИЯ И КОНТАКТЫ МЕНЕДЖЕРА         -->
   <!-- ======================================================================= -->
   <div class="page">
     <div class="page-body">
@@ -1256,16 +1169,12 @@
           <p>
             Свяжитесь со мной напрямую для согласования договора, выезда инженера на замеры или предоставления тестовых образцов оборудования на ваш объект.
           </p>
-          <div style="margin-top: 6px; font-size: 8px; color: #64748B;">
-            Офис: ТОО «Tork Kazakhstan Distribution», г. Астана, район Есиль, ул. Достык, 18, БЦ «Москва», офис 704
-          </div>
         </div>
         <div class="manager-card">
           <div class="name">{{ manager_name }}</div>
           <div class="role">Ведущий специалист по корпоративным клиентам</div>
           <div class="phone">{{ manager_phone }}</div>
           <div class="social-links">
-            Telegram: <strong>{{ manager_tg }}</strong><br>
             WhatsApp: <strong>{{ manager_phone }}</strong>
           </div>
         </div>
@@ -1276,10 +1185,10 @@
       </div>
     </div>
 
-    <!-- FOOTER PAGE 5 -->
+    <!-- FOOTER PAGE 4 -->
     <div class="page-footer">
       <div>ТОО «Tork Kazakhstan Distribution» • Официальный дистрибьютор Tork в Казахстане</div>
-      <div>КП для {{ client_name }} от {{ kp_date }} • Стр. 5 из 5</div>
+      <div>КП для {{ client_name }} от {{ kp_date }} • Стр. 4 из 4</div>
     </div>
   </div>
 

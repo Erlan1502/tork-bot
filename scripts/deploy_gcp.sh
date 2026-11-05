@@ -50,7 +50,7 @@ echo "⚙️ [4/7] Настройка производственного окр�
 if [ ! -f ".env" ]; then
     cp .env.example .env
     # Update manager IDs if specified
-    sed -i 's/^ALLOWED_TELEGRAM_IDS=.*/ALLOWED_TELEGRAM_IDS=5699064827,7390702902,1248663402/' .env
+    sed -i 's/^ALLOWED_TELEGRAM_IDS=.*/ALLOWED_TELEGRAM_IDS=5699064827,7390702902,1248663402,385661842/' .env
 fi
 
 # 5. Build and run main containers
@@ -97,7 +97,7 @@ fi
 echo ""
 echo "=================================================="
 echo "🎉 БОТ УСПЕШНО РАЗВЕРНУТ И РАБОТАЕТ В GOOGLE CLOUD!"
-echo "👥 Авторизованные менеджеры: 5699064827, 7390702902, 1248663402"
+echo "👥 Авторизованные менеджеры: 5699064827, 7390702902, 1248663402, 385661842"
 if [ -n "$TUNNEL_URL" ]; then
     echo "🌐 Веб-каталог: $TUNNEL_URL/webapp/"
 fi

@@ -260,7 +260,10 @@ createApp({
       const tg = window.Telegram?.WebApp;
       const tgUser = tg?.initDataUnsafe?.user || {};
       const tgChat = tg?.initDataUnsafe?.chat || {};
-      const chatId = tgUser.id || tgChat.id || null;
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlUserId = urlParams.get('user_id') || urlParams.get('telegram_id') || urlParams.get('chat_id');
+      const tgUserId = tgUser.id || (urlUserId ? parseInt(urlUserId) : null) || 5699064827;
+      const chatId = tgChat.id || tgUserId;
 
       const itemsPayload = this.kitItemsList.map(item => ({
         sku: String(item.product.sku).trim(),
@@ -283,7 +286,7 @@ createApp({
         action: action,
         event: action,
         chat_id: chatId,
-        tg_user_id: tgUser.id || null,
+        tg_user_id: tgUserId,
         tg_username: tgUser.username || null,
         items: itemsPayload,
         // Compatibility fields for single-item nodes:
@@ -303,13 +306,26 @@ createApp({
 
       // 1. Send to Backend API
       try {
-        await fetch('/api/manager/select-kit', {
+        const resp = await fetch('/api/manager/select-kit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
+        if (!resp.ok) {
+          const errText = await resp.text();
+          let errMsg = `Ошибка сервера (${resp.status})`;
+          try {
+            const errJson = JSON.parse(errText);
+            errMsg = errJson.detail || errMsg;
+          } catch (_) {}
+          throw new Error(errMsg);
+        }
       } catch (e) {
-        console.warn('API /api/manager/select-kit error:', e);
+        console.error('API /api/manager/select-kit error:', e);
+        this.isSubmitting = false;
+        this.haptic('error');
+        this.showAdminToast('Ошибка сохранения выбора: ' + e.message, 'error');
+        return;
       }
 
       // 2. Telegram WebApp sendData fallback (if opened from reply keyboard)
@@ -509,7 +525,9 @@ createApp({
 
       const tg = window.Telegram?.WebApp;
       const tgUser = tg?.initDataUnsafe?.user || {};
-      const tgId = tgUser.id || 5699064827;
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlUserId = urlParams.get('user_id') || urlParams.get('telegram_id') || urlParams.get('chat_id');
+      const tgId = tgUser.id || (urlUserId ? parseInt(urlUserId) : null) || 5699064827;
 
       try {
         const resp = await fetch(`/api/manager/form-defaults?telegram_id=${tgId}`);
@@ -523,6 +541,19 @@ createApp({
             if (!this.kpForm.client_city) this.kpForm.client_city = d.client_city || 'г. Астана, Казахстан';
             if (!this.kpForm.company_name && d.company_name) this.kpForm.company_name = d.company_name;
             if (!this.kpForm.client_facility && d.client_facility) this.kpForm.client_facility = d.client_facility;
+
+            // If manager opened KP form directly, restore chosen kit from session so nothing is unlinked
+            if (this.kitItemsList.length === 0 && Array.isArray(d.selected_bundle) && d.selected_bundle.length > 0) {
+              for (const it of d.selected_bundle) {
+                if (it && it.sku) {
+                  const prod = this.products.find(p => p.sku === it.sku) || it;
+                  this.selectedKit[it.sku] = {
+                    product: prod,
+                    count: it.count || 1
+                  };
+                }
+              }
+            }
           }
         }
       } catch (e) {
@@ -554,8 +585,10 @@ createApp({
       const tg = window.Telegram?.WebApp;
       const tgUser = tg?.initDataUnsafe?.user || {};
       const tgChat = tg?.initDataUnsafe?.chat || {};
-      const tgId = tgUser.id || 5699064827;
-      const chatId = tgUser.id || tgChat.id || 5699064827;
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlUserId = urlParams.get('user_id') || urlParams.get('telegram_id') || urlParams.get('chat_id');
+      const tgId = tgUser.id || (urlUserId ? parseInt(urlUserId) : null) || 5699064827;
+      const chatId = tgChat.id || tgId;
 
       const items = this.kitItemsList.length > 0 ? this.kitItemsList.map(item => ({
         sku: String(item.product.sku).trim(),
@@ -602,8 +635,15 @@ createApp({
             }, 1800);
           }
         } else {
-          const err = await resp.json();
-          throw new Error(err.detail || 'Ошибка генерации КП');
+          const errText = await resp.text();
+          let errMsg = 'Ошибка генерации КП';
+          try {
+            const errJson = JSON.parse(errText);
+            errMsg = errJson.detail || errMsg;
+          } catch (_) {
+            errMsg = `Ошибка сервера (${resp.status}): ${errText.slice(0, 100)}`;
+          }
+          throw new Error(errMsg);
         }
       } catch (err) {
         this.isGeneratingKp = false;

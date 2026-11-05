@@ -39,7 +39,7 @@ def update_workflow():
                     "row": {
                         "buttons": [
                             {
-                                "text": "📄 Создать КП (5 стр. PDF)",
+                                "text": "📄 Создать КП (PDF)",
                                 "additionalFields": {
                                     "callback_data": "create_kp"
                                 }
@@ -63,9 +63,11 @@ def update_workflow():
                     "row": {
                         "buttons": [
                             {
-                                "text": "🔄 Выбрать другой диспенсер",
+                                "text": "🔄 Примерить другой диспенсер",
                                 "additionalFields": {
-                                    "callback_data": "change_dispenser"
+                                    "web_app": {
+                                        "url": "={{ ($env.WEBHOOK_URL ? $env.WEBHOOK_URL.replace(/\\/+$/, '') : 'http://localhost:8088') + '/app/index.html' }}"
+                                    }
                                 }
                             }
                         ]
@@ -73,7 +75,7 @@ def update_workflow():
                 }
             ]
         }
-        print("✅ Updated 'Send Manager Result Photo' inline keyboard with [📄 Создать КП (5 стр. PDF)]")
+        print("✅ Updated 'Send Manager Result Photo' inline keyboard with [📄 Создать КП (PDF)], [📊 Скачать презентацию (PDF)], [🔄 Примерить другой диспенсер]")
 
     # 2. Add 'Render & Send Commercial Proposal' HTTP node
     kp_node_name = "Render & Send Commercial Proposal"
@@ -92,7 +94,7 @@ def update_workflow():
             },
             "sendBody": True,
             "specifyBody": "json",
-            "jsonBody": "={{ JSON.stringify({\n  telegram_id: $('Telegram Trigger').first()?.json?.callback_query ? $('Telegram Trigger').first().json.callback_query.from.id : ($('Telegram Trigger').first()?.json?.message ? $('Telegram Trigger').first().json.message.from.id : ($json.from ? $json.from.id : 0)),\n  chat_id: $('Telegram Trigger').first()?.json?.callback_query ? ($('Telegram Trigger').first().json.callback_query.message ? $('Telegram Trigger').first().json.callback_query.message.chat.id : $('Telegram Trigger').first().json.callback_query.from.id) : ($('Telegram Trigger').first()?.json?.message ? $('Telegram Trigger').first().json.message.chat.id : ($json.chat ? $json.chat.id : 0)),\n  callback_query_id: $('Telegram Trigger').first()?.json?.callback_query ? $('Telegram Trigger').first().json.callback_query.id : undefined,\n  company_name: 'ТОО «Заказчик»',\n  client_facility: 'Гостиничный комплекс, 5 этажей, 42 санузла',\n  client_city: 'г. Астана, Казахстан',\n  send_to_telegram: true\n}) }}",
+            "jsonBody": "={{ JSON.stringify({\n  telegram_id: $('Telegram Trigger').first()?.json?.callback_query ? $('Telegram Trigger').first().json.callback_query.from.id : ($('Telegram Trigger').first()?.json?.message ? $('Telegram Trigger').first().json.message.from.id : ($json.from ? $json.from.id : 0)),\n  chat_id: $('Telegram Trigger').first()?.json?.callback_query ? ($('Telegram Trigger').first().json.callback_query.message ? $('Telegram Trigger').first().json.callback_query.message.chat.id : $('Telegram Trigger').first().json.callback_query.from.id) : ($('Telegram Trigger').first()?.json?.message ? $('Telegram Trigger').first().json.message.chat.id : ($json.chat ? $json.chat.id : 0)),\n  callback_query_id: $('Telegram Trigger').first()?.json?.callback_query ? $('Telegram Trigger').first().json.callback_query.id : undefined,\n  send_to_telegram: true\n}) }}",
             "options": {}
         },
         "id": "node-render-send-kp",

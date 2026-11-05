@@ -157,7 +157,7 @@
                     },
                     "rightValue": "web_app_select",
                     "id": "rule-web-app-select",
-                    "leftValue": "={{ ($json.callback_query?.data === 'download_presentation' || $('Telegram Trigger').first()?.json?.callback_query?.data === 'download_presentation' || ($json.message?.text || $('Telegram Trigger').first()?.json?.message?.text || '').startsWith('/pdf') || ($json.message?.text || $('Telegram Trigger').first()?.json?.message?.text || '').startsWith('/presentation')) ? 'download_presentation' : (($json.message?.web_app_data?.data || $('Telegram Trigger').first()?.json?.message?.web_app_data?.data || $('Telegram Trigger').item?.json?.message?.web_app_data?.data) ? 'web_app_select' : (((($json.message?.photo || $('Telegram Trigger').first()?.json?.message?.photo) || (($json.message?.document || $('Telegram Trigger').first()?.json?.message?.document) && (($json.message?.document?.mime_type || $('Telegram Trigger').first()?.json?.message?.document?.mime_type) || '').startsWith('image/')))) ? 'photo' : (($json.callback_query || $('Telegram Trigger').first()?.json?.callback_query || $('Telegram Trigger').item?.json?.callback_query) ? 'callback' : 'other'))) }}"
+                    "leftValue": "={{ ($json.callback_query?.data === 'create_kp' || $('Telegram Trigger').first()?.json?.callback_query?.data === 'create_kp' || ($json.message?.text || $('Telegram Trigger').first()?.json?.message?.text || '').startsWith('/kp')) ? 'create_kp' : (($json.callback_query?.data === 'download_presentation' || $('Telegram Trigger').first()?.json?.callback_query?.data === 'download_presentation' || ($json.message?.text || $('Telegram Trigger').first()?.json?.message?.text || '').startsWith('/pdf') || ($json.message?.text || $('Telegram Trigger').first()?.json?.message?.text || '').startsWith('/presentation')) ? 'download_presentation' : (($json.callback_query?.data === 'change_dispenser' || $('Telegram Trigger').first()?.json?.callback_query?.data === 'change_dispenser' || $json.callback_query?.data === 'select_other_dispenser' || $('Telegram Trigger').first()?.json?.callback_query?.data === 'select_other_dispenser') ? 'change_dispenser' : (($json.callback_query?.data === 'restore_previous_montage' || $('Telegram Trigger').first()?.json?.callback_query?.data === 'restore_previous_montage' || $json.callback_query?.data === 'undo_dispenser_change' || $('Telegram Trigger').first()?.json?.callback_query?.data === 'undo_dispenser_change') ? 'restore_previous_montage' : (($json.message?.web_app_data?.data || $('Telegram Trigger').first()?.json?.message?.web_app_data?.data || $('Telegram Trigger').item?.json?.message?.web_app_data?.data) ? 'web_app_select' : (((($json.message?.photo || $('Telegram Trigger').first()?.json?.message?.photo) || (($json.message?.document || $('Telegram Trigger').first()?.json?.message?.document) && (($json.message?.document?.mime_type || $('Telegram Trigger').first()?.json?.message?.document?.mime_type) || '').startsWith('image/')))) ? 'photo' : (($json.callback_query || $('Telegram Trigger').first()?.json?.callback_query || $('Telegram Trigger').item?.json?.callback_query) ? 'callback' : 'other')))))) }}"
                   }
                 ],
                 "combinator": "and"
@@ -181,7 +181,7 @@
                     },
                     "rightValue": "photo",
                     "id": "rule-photo",
-                    "leftValue": "={{ ($json.callback_query?.data === 'download_presentation' || $('Telegram Trigger').first()?.json?.callback_query?.data === 'download_presentation' || ($json.message?.text || $('Telegram Trigger').first()?.json?.message?.text || '').startsWith('/pdf') || ($json.message?.text || $('Telegram Trigger').first()?.json?.message?.text || '').startsWith('/presentation')) ? 'download_presentation' : (($json.message?.web_app_data?.data || $('Telegram Trigger').first()?.json?.message?.web_app_data?.data || $('Telegram Trigger').item?.json?.message?.web_app_data?.data) ? 'web_app_select' : (((($json.message?.photo || $('Telegram Trigger').first()?.json?.message?.photo) || (($json.message?.document || $('Telegram Trigger').first()?.json?.message?.document) && (($json.message?.document?.mime_type || $('Telegram Trigger').first()?.json?.message?.document?.mime_type) || '').startsWith('image/')))) ? 'photo' : (($json.callback_query || $('Telegram Trigger').first()?.json?.callback_query || $('Telegram Trigger').item?.json?.callback_query) ? 'callback' : 'other'))) }}"
+                    "leftValue": "={{ ($json.callback_query?.data === 'create_kp' || $('Telegram Trigger').first()?.json?.callback_query?.data === 'create_kp' || ($json.message?.text || $('Telegram Trigger').first()?.json?.message?.text || '').startsWith('/kp')) ? 'create_kp' : (($json.callback_query?.data === 'download_presentation' || $('Telegram Trigger').first()?.json?.callback_query?.data === 'download_presentation' || ($json.message?.text || $('Telegram Trigger').first()?.json?.message?.text || '').startsWith('/pdf') || ($json.message?.text || $('Telegram Trigger').first()?.json?.message?.text || '').startsWith('/presentation')) ? 'download_presentation' : (($json.callback_query?.data === 'change_dispenser' || $('Telegram Trigger').first()?.json?.callback_query?.data === 'change_dispenser' || $json.callback_query?.data === 'select_other_dispenser' || $('Telegram Trigger').first()?.json?.callback_query?.data === 'select_other_dispenser') ? 'change_dispenser' : (($json.callback_query?.data === 'restore_previous_montage' || $('Telegram Trigger').first()?.json?.callback_query?.data === 'restore_previous_montage' || $json.callback_query?.data === 'undo_dispenser_change' || $('Telegram Trigger').first()?.json?.callback_query?.data === 'undo_dispenser_change') ? 'restore_previous_montage' : (($json.message?.web_app_data?.data || $('Telegram Trigger').first()?.json?.message?.web_app_data?.data || $('Telegram Trigger').item?.json?.message?.web_app_data?.data) ? 'web_app_select' : (((($json.message?.photo || $('Telegram Trigger').first()?.json?.message?.photo) || (($json.message?.document || $('Telegram Trigger').first()?.json?.message?.document) && (($json.message?.document?.mime_type || $('Telegram Trigger').first()?.json?.message?.document?.mime_type) || '').startsWith('image/')))) ? 'photo' : (($json.callback_query || $('Telegram Trigger').first()?.json?.callback_query || $('Telegram Trigger').item?.json?.callback_query) ? 'callback' : 'other')))))) }}"
                   }
                 ],
                 "combinator": "and"
@@ -205,7 +205,7 @@
                     },
                     "rightValue": "download_presentation",
                     "id": "rule-download-pres",
-                    "leftValue": "={{ ($json.callback_query?.data === 'download_presentation' || $('Telegram Trigger').first()?.json?.callback_query?.data === 'download_presentation' || ($json.message?.text || $('Telegram Trigger').first()?.json?.message?.text || '').startsWith('/pdf') || ($json.message?.text || $('Telegram Trigger').first()?.json?.message?.text || '').startsWith('/presentation')) ? 'download_presentation' : (($json.message?.web_app_data?.data || $('Telegram Trigger').first()?.json?.message?.web_app_data?.data || $('Telegram Trigger').item?.json?.message?.web_app_data?.data) ? 'web_app_select' : (((($json.message?.photo || $('Telegram Trigger').first()?.json?.message?.photo) || (($json.message?.document || $('Telegram Trigger').first()?.json?.message?.document) && (($json.message?.document?.mime_type || $('Telegram Trigger').first()?.json?.message?.document?.mime_type) || '').startsWith('image/')))) ? 'photo' : (($json.callback_query || $('Telegram Trigger').first()?.json?.callback_query || $('Telegram Trigger').item?.json?.callback_query) ? 'callback' : 'other'))) }}"
+                    "leftValue": "={{ ($json.callback_query?.data === 'create_kp' || $('Telegram Trigger').first()?.json?.callback_query?.data === 'create_kp' || ($json.message?.text || $('Telegram Trigger').first()?.json?.message?.text || '').startsWith('/kp')) ? 'create_kp' : (($json.callback_query?.data === 'download_presentation' || $('Telegram Trigger').first()?.json?.callback_query?.data === 'download_presentation' || ($json.message?.text || $('Telegram Trigger').first()?.json?.message?.text || '').startsWith('/pdf') || ($json.message?.text || $('Telegram Trigger').first()?.json?.message?.text || '').startsWith('/presentation')) ? 'download_presentation' : (($json.callback_query?.data === 'change_dispenser' || $('Telegram Trigger').first()?.json?.callback_query?.data === 'change_dispenser' || $json.callback_query?.data === 'select_other_dispenser' || $('Telegram Trigger').first()?.json?.callback_query?.data === 'select_other_dispenser') ? 'change_dispenser' : (($json.callback_query?.data === 'restore_previous_montage' || $('Telegram Trigger').first()?.json?.callback_query?.data === 'restore_previous_montage' || $json.callback_query?.data === 'undo_dispenser_change' || $('Telegram Trigger').first()?.json?.callback_query?.data === 'undo_dispenser_change') ? 'restore_previous_montage' : (($json.message?.web_app_data?.data || $('Telegram Trigger').first()?.json?.message?.web_app_data?.data || $('Telegram Trigger').item?.json?.message?.web_app_data?.data) ? 'web_app_select' : (((($json.message?.photo || $('Telegram Trigger').first()?.json?.message?.photo) || (($json.message?.document || $('Telegram Trigger').first()?.json?.message?.document) && (($json.message?.document?.mime_type || $('Telegram Trigger').first()?.json?.message?.document?.mime_type) || '').startsWith('image/')))) ? 'photo' : (($json.callback_query || $('Telegram Trigger').first()?.json?.callback_query || $('Telegram Trigger').item?.json?.callback_query) ? 'callback' : 'other')))))) }}"
                   }
                 ],
                 "combinator": "and"
@@ -229,13 +229,37 @@
                     },
                     "rightValue": "callback",
                     "id": "rule-callback",
-                    "leftValue": "={{ ($json.callback_query?.data === 'download_presentation' || $('Telegram Trigger').first()?.json?.callback_query?.data === 'download_presentation' || ($json.message?.text || $('Telegram Trigger').first()?.json?.message?.text || '').startsWith('/pdf') || ($json.message?.text || $('Telegram Trigger').first()?.json?.message?.text || '').startsWith('/presentation')) ? 'download_presentation' : (($json.message?.web_app_data?.data || $('Telegram Trigger').first()?.json?.message?.web_app_data?.data || $('Telegram Trigger').item?.json?.message?.web_app_data?.data) ? 'web_app_select' : (((($json.message?.photo || $('Telegram Trigger').first()?.json?.message?.photo) || (($json.message?.document || $('Telegram Trigger').first()?.json?.message?.document) && (($json.message?.document?.mime_type || $('Telegram Trigger').first()?.json?.message?.document?.mime_type) || '').startsWith('image/')))) ? 'photo' : (($json.callback_query || $('Telegram Trigger').first()?.json?.callback_query || $('Telegram Trigger').item?.json?.callback_query) ? 'callback' : 'other'))) }}"
+                    "leftValue": "={{ ($json.callback_query?.data === 'create_kp' || $('Telegram Trigger').first()?.json?.callback_query?.data === 'create_kp' || ($json.message?.text || $('Telegram Trigger').first()?.json?.message?.text || '').startsWith('/kp')) ? 'create_kp' : (($json.callback_query?.data === 'download_presentation' || $('Telegram Trigger').first()?.json?.callback_query?.data === 'download_presentation' || ($json.message?.text || $('Telegram Trigger').first()?.json?.message?.text || '').startsWith('/pdf') || ($json.message?.text || $('Telegram Trigger').first()?.json?.message?.text || '').startsWith('/presentation')) ? 'download_presentation' : (($json.callback_query?.data === 'change_dispenser' || $('Telegram Trigger').first()?.json?.callback_query?.data === 'change_dispenser' || $json.callback_query?.data === 'select_other_dispenser' || $('Telegram Trigger').first()?.json?.callback_query?.data === 'select_other_dispenser') ? 'change_dispenser' : (($json.callback_query?.data === 'restore_previous_montage' || $('Telegram Trigger').first()?.json?.callback_query?.data === 'restore_previous_montage' || $json.callback_query?.data === 'undo_dispenser_change' || $('Telegram Trigger').first()?.json?.callback_query?.data === 'undo_dispenser_change') ? 'restore_previous_montage' : (($json.message?.web_app_data?.data || $('Telegram Trigger').first()?.json?.message?.web_app_data?.data || $('Telegram Trigger').item?.json?.message?.web_app_data?.data) ? 'web_app_select' : (((($json.message?.photo || $('Telegram Trigger').first()?.json?.message?.photo) || (($json.message?.document || $('Telegram Trigger').first()?.json?.message?.document) && (($json.message?.document?.mime_type || $('Telegram Trigger').first()?.json?.message?.document?.mime_type) || '').startsWith('image/')))) ? 'photo' : (($json.callback_query || $('Telegram Trigger').first()?.json?.callback_query || $('Telegram Trigger').item?.json?.callback_query) ? 'callback' : 'other')))))) }}"
                   }
                 ],
                 "combinator": "and"
               },
               "renameOutput": true,
               "outputKey": "callback"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "operator": {
+                      "operation": "equals",
+                      "type": "string"
+                    },
+                    "rightValue": "create_kp",
+                    "id": "rule-create-kp",
+                    "leftValue": "={{ ($json.callback_query?.data === 'create_kp' || $('Telegram Trigger').first()?.json?.callback_query?.data === 'create_kp' || ($json.message?.text || $('Telegram Trigger').first()?.json?.message?.text || '').startsWith('/kp')) ? 'create_kp' : (($json.callback_query?.data === 'download_presentation' || $('Telegram Trigger').first()?.json?.callback_query?.data === 'download_presentation' || ($json.message?.text || $('Telegram Trigger').first()?.json?.message?.text || '').startsWith('/pdf') || ($json.message?.text || $('Telegram Trigger').first()?.json?.message?.text || '').startsWith('/presentation')) ? 'download_presentation' : (($json.callback_query?.data === 'change_dispenser' || $('Telegram Trigger').first()?.json?.callback_query?.data === 'change_dispenser' || $json.callback_query?.data === 'select_other_dispenser' || $('Telegram Trigger').first()?.json?.callback_query?.data === 'select_other_dispenser') ? 'change_dispenser' : (($json.callback_query?.data === 'restore_previous_montage' || $('Telegram Trigger').first()?.json?.callback_query?.data === 'restore_previous_montage' || $json.callback_query?.data === 'undo_dispenser_change' || $('Telegram Trigger').first()?.json?.callback_query?.data === 'undo_dispenser_change') ? 'restore_previous_montage' : (($json.message?.web_app_data?.data || $('Telegram Trigger').first()?.json?.message?.web_app_data?.data || $('Telegram Trigger').item?.json?.message?.web_app_data?.data) ? 'web_app_select' : (((($json.message?.photo || $('Telegram Trigger').first()?.json?.message?.photo) || (($json.message?.document || $('Telegram Trigger').first()?.json?.message?.document) && (($json.message?.document?.mime_type || $('Telegram Trigger').first()?.json?.message?.document?.mime_type) || '').startsWith('image/')))) ? 'photo' : (($json.callback_query || $('Telegram Trigger').first()?.json?.callback_query || $('Telegram Trigger').item?.json?.callback_query) ? 'callback' : 'other')))))) }}"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "create_kp"
             }
           ]
         },
@@ -510,6 +534,18 @@
               "row": {
                 "buttons": [
                   {
+                    "text": "📄 Создать КП (PDF)",
+                    "additionalFields": {
+                      "callback_data": "create_kp"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "row": {
+                "buttons": [
+                  {
                     "text": "📊 Скачать презентацию (PDF)",
                     "additionalFields": {
                       "callback_data": "download_presentation"
@@ -693,7 +729,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\n  telegram_id: $('Telegram Trigger').first()?.json?.callback_query ? $('Telegram Trigger').first().json.callback_query.from.id : ($('Telegram Trigger').first()?.json?.message ? $('Telegram Trigger').first().json.message.from.id : ($json.from ? $json.from.id : 0)),\n  chat_id: $('Telegram Trigger').first()?.json?.callback_query ? ($('Telegram Trigger').first().json.callback_query.message ? $('Telegram Trigger').first().json.callback_query.message.chat.id : $('Telegram Trigger').first().json.callback_query.from.id) : ($('Telegram Trigger').first()?.json?.message ? $('Telegram Trigger').first().json.message.chat.id : ($json.chat ? $json.chat.id : 0)),\n  callback_query_id: $('Telegram Trigger').first()?.json?.callback_query ? $('Telegram Trigger').first().json.callback_query.id : undefined,\n  company_name: 'ТОО «Заказчик»',\n  client_facility: 'Гостиничный комплекс, 5 этажей, 42 санузла',\n  client_city: 'г. Астана, Казахстан',\n  send_to_telegram: true\n}) }}",
+        "jsonBody": "={{ JSON.stringify({\n  telegram_id: $('Telegram Trigger').first()?.json?.callback_query ? $('Telegram Trigger').first().json.callback_query.from.id : ($('Telegram Trigger').first()?.json?.message ? $('Telegram Trigger').first().json.message.from.id : ($json.from ? $json.from.id : 0)),\n  chat_id: $('Telegram Trigger').first()?.json?.callback_query ? ($('Telegram Trigger').first().json.callback_query.message ? $('Telegram Trigger').first().json.callback_query.message.chat.id : $('Telegram Trigger').first().json.callback_query.from.id) : ($('Telegram Trigger').first()?.json?.message ? $('Telegram Trigger').first().json.message.chat.id : ($json.chat ? $json.chat.id : 0)),\n  callback_query_id: $('Telegram Trigger').first()?.json?.callback_query ? $('Telegram Trigger').first().json.callback_query.id : undefined,\n  send_to_telegram: true\n}) }}",
         "options": {}
       },
       "id": "node-render-send-kp",
@@ -790,7 +826,7 @@
         ],
         [
           {
-            "node": "Send Manager Welcome & Menu",
+            "node": "Render & Send Commercial Proposal",
             "type": "main",
             "index": 0
           }
