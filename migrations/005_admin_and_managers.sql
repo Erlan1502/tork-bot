@@ -40,7 +40,8 @@ COMMENT ON COLUMN products.custom_price_kzt IS 'Фиксированная це�
 COMMENT ON COLUMN products.is_active_in_catalog IS 'Флаг активности товара в каталоге Mini App';
 
 -- 3. Обновление представления v_products_active с приоритетом custom_price_kzt
-CREATE OR REPLACE VIEW v_products_active AS
+DROP VIEW IF EXISTS v_products_active CASCADE;
+CREATE VIEW v_products_active AS
 SELECT 
     p.sku,
     p.name,

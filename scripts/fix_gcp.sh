@@ -20,8 +20,18 @@ if [ -z "$VLM_KEY" ]; then
     VLM_KEY=$(grep 'VLM_API_KEY=' .env 2>/dev/null | cut -d '=' -f2- || true)
 fi
 
+BOT_TOKEN="${2:-}"
+if [ -z "$BOT_TOKEN" ]; then
+    BOT_TOKEN=$(grep -E '^TELEGRAM_BOT_TOKEN=' .env 2>/dev/null | cut -d '=' -f2- || true)
+fi
+if [ -z "$BOT_TOKEN" ]; then
+    BOT_TOKEN="8896150273:AAE9PdQcenxCZVXgBhISBNwf0Nk3Zwr6yeY"
+fi
+
+echo "Используется токен бота: ${BOT_TOKEN:0:10}..."
+
 cat << EOF > .env
-TELEGRAM_BOT_TOKEN=8896150273:AAE9PdQcenxCZVXgBhISBNwf0Nk3Zwr6yeY
+TELEGRAM_BOT_TOKEN=$BOT_TOKEN
 ALLOWED_TELEGRAM_IDS=5699064827,7390702902,1248663402,385661842
 MANAGER_CHAT_ID=-100200300400
 VLM_API_KEY=$VLM_KEY
@@ -125,10 +135,10 @@ WEBHOOK_TARGET="$TUNNEL_URL/webhook/6203b22d-7f6e-4731-b245-0f6a913edfa1/webhook
 
 SET_RES=$(curl -s -F "url=$WEBHOOK_TARGET" \
      -F "secret_token=$SECRET_TOKEN" \
-     "https://api.telegram.org/bot8896150273:AAE9PdQcenxCZVXgBhISBNwf0Nk3Zwr6yeY/setWebhook")
+     "https://api.telegram.org/bot${BOT_TOKEN}/setWebhook")
 echo "Ответ Telegram setWebhook: $SET_RES"
 
-curl -s -X POST "https://api.telegram.org/bot8896150273:AAE9PdQcenxCZVXgBhISBNwf0Nk3Zwr6yeY/setChatMenuButton" \
+curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/setChatMenuButton" \
      -H "Content-Type: application/json" \
      -d "{\"menu_button\": {\"type\": \"web_app\", \"text\": \"✨ Каталог Tork\", \"web_app\": {\"url\": \"$TUNNEL_URL/webapp/\"}}}" > /dev/null
 
