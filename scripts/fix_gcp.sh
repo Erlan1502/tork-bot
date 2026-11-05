@@ -45,9 +45,17 @@ DEFAULT_DISTRIBUTOR_ID=1
 MAX_RENDERS_PER_USER_DAY=10
 EOF
 
-# 3. Restore n8n database dump (includes credentials, users, workflow and webhooks)
+# 3. Restore n8n database dump (includes credentials, users, workflow, versions and webhooks)
 echo "💾 [3/6] Восстановление дампа базы данных n8n в PostgreSQL..."
 sudo docker exec -i tork_postgres psql -U tork_admin -d tork_bot_db < n8n_dump.sql
+
+# Гарантированное закрепление опубликованной версии для n8n 2.x
+sudo docker exec -i tork_postgres psql -U tork_admin -d tork_bot_db -c "
+INSERT INTO workflow_published_version (\"workflowId\", \"publishedVersionId\", \"createdAt\", \"updatedAt\")
+VALUES ('sHnoGT842oAJacFu', '19f66501-b1fb-45e1-9d90-0c4add4f89a7', NOW(), NOW())
+ON CONFLICT (\"workflowId\") DO UPDATE SET \"publishedVersionId\" = EXCLUDED.\"publishedVersionId\";
+UPDATE workflow_entity SET active = true, \"activeVersionId\" = '19f66501-b1fb-45e1-9d90-0c4add4f89a7' WHERE id = 'sHnoGT842oAJacFu';
+"
 
 # 4. Restart Cloudflare Tunnel & Obtain Active HTTPS URL
 echo "🌐 [4/6] Перезапуск Cloudflare HTTPS туннеля (24/7)..."
@@ -82,9 +90,14 @@ for i in {1..30}; do
     sleep 2
 done
 
-# Publish workflow in n8n and wait for router activation
+# Publish workflow in n8n and sync published version
 echo "📢 Публикация и активация рабочего процесса n8n..."
 sudo docker exec -u node tork_n8n n8n publish:workflow --id=sHnoGT842oAJacFu || true
+sudo docker exec -i tork_postgres psql -U tork_admin -d tork_bot_db -c "
+INSERT INTO workflow_published_version (\"workflowId\", \"publishedVersionId\", \"createdAt\", \"updatedAt\")
+VALUES ('sHnoGT842oAJacFu', '19f66501-b1fb-45e1-9d90-0c4add4f89a7', NOW(), NOW())
+ON CONFLICT (\"workflowId\") DO UPDATE SET \"publishedVersionId\" = EXCLUDED.\"publishedVersionId\";
+"
 sudo docker restart tork_n8n tork_cdn
 
 echo "⏳ Ожидание перезапуска n8n и Nginx после публикации..."
@@ -111,18 +124,34 @@ curl -s -X POST "https://api.telegram.org/bot8896150273:AAE9PdQcenxCZVXgBhISBNwf
      -H "Content-Type: application/json" \
      -d "{\"menu_button\": {\"type\": \"web_app\", \"text\": \"✨ Каталог Tork\", \"web_app\": {\"url\": \"$TUNNEL_URL/webapp/\"}}}" > /dev/null
 
-echo "🧪 Тестирование вебхука на сервере..."
-TEST_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "http://localhost:8088/webhook/6203b22d-7f6e-4731-b245-0f6a913edfa1/webhook" \
-     -H "Content-Type: application/json" \
-     -H "x-telegram-bot-api-secret-token: $SECRET_TOKEN" \
-     -d '{"update_id":1,"message":{"message_id":999,"chat":{"id":5699064827,"type":"private"},"from":{"id":5699064827,"first_name":"Erlan"},"text":"/start"}}' || true)
+echo "🧪 Тестирование вебхука на сервере (ожидание активации роутера)..."
+TEST_STATUS="000"
+for i in {1..15}; do
+    TEST_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "http://localhost:8088/webhook/6203b22d-7f6e-4731-b245-0f6a913edfa1/webhook" \
+         -H "Content-Type: application/json" \
+         -H "x-telegram-bot-api-secret-token: $SECRET_TOKEN" \
+         -d '{"update_id":1,"message":{"message_id":999,"chat":{"id":5699064827,"type":"private"},"from":{"id":5699064827,"first_name":"Erlan"},"text":"/start"}}' || true)
+    if [ "$TEST_STATUS" = "200" ]; then
+        echo "✅ Локальный вебхук ответил 200 OK (попытка $i)!"
+        break
+    fi
+    sleep 2
+done
 
 echo "HTTP код ответа локального вебхука (Nginx): $TEST_STATUS"
 
-TUNNEL_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$WEBHOOK_TARGET" \
-     -H "Content-Type: application/json" \
-     -H "x-telegram-bot-api-secret-token: $SECRET_TOKEN" \
-     -d '{"update_id":1,"message":{"message_id":999,"chat":{"id":5699064827,"type":"private"},"from":{"id":5699064827,"first_name":"Erlan"},"text":"/start"}}' || true)
+TUNNEL_STATUS="000"
+for i in {1..10}; do
+    TUNNEL_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$WEBHOOK_TARGET" \
+         -H "Content-Type: application/json" \
+         -H "x-telegram-bot-api-secret-token: $SECRET_TOKEN" \
+         -d '{"update_id":1,"message":{"message_id":999,"chat":{"id":5699064827,"type":"private"},"from":{"id":5699064827,"first_name":"Erlan"},"text":"/start"}}' || true)
+    if [ "$TUNNEL_STATUS" = "200" ]; then
+        echo "✅ Вебхук через Cloudflare туннель ответил 200 OK (попытка $i)!"
+        break
+    fi
+    sleep 2
+done
 
 echo "HTTP код ответа через Cloudflare туннель: $TUNNEL_STATUS"
 
