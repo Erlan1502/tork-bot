@@ -45,9 +45,15 @@ DEFAULT_DISTRIBUTOR_ID=1
 MAX_RENDERS_PER_USER_DAY=10
 EOF
 
-# 3. Restore n8n database dump (includes credentials, users, workflow, versions and webhooks)
+# 3. Restore n8n database dump and apply migrations
 echo "💾 [3/6] Восстановление дампа базы данных n8n в PostgreSQL..."
 sudo docker exec -i tork_postgres psql -U tork_admin -d tork_bot_db < n8n_dump.sql
+
+echo "📦 Применение миграций базы данных PostgreSQL..."
+for mig in $(ls -v migrations/*.sql 2>/dev/null); do
+    echo "  -> Миграция: $mig"
+    sudo docker exec -i tork_postgres psql -U tork_admin -d tork_bot_db < "$mig" || true
+done
 
 # Гарантированное закрепление опубликованной версии для n8n 2.x
 sudo docker exec -i tork_postgres psql -U tork_admin -d tork_bot_db -c "
@@ -76,15 +82,16 @@ echo "WEBHOOK_URL=$TUNNEL_URL" >> .env
 echo "N8N_WEBHOOK_URL=$TUNNEL_URL" >> .env
 echo "URL туннеля: $TUNNEL_URL"
 
-# 5. Apply updated .env and recreate containers
-echo "🔄 [5/6] Применение переменных и перезапуск сервисов (docker compose up -d)..."
-sudo docker compose up -d --remove-orphans --force-recreate
+# 5. Build and apply updated .env and recreate containers
+echo "🔄 [5/6] Применение переменных и пересборка сервисов (docker compose up -d --build)..."
+sudo docker compose up -d --build --remove-orphans --force-recreate
 
-echo "⏳ Ожидание полной готовности n8n..."
+echo "⏳ Ожидание полной готовности n8n и Dashboard API..."
 for i in {1..30}; do
     CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8088/" || true)
-    if [ "$CODE" = "200" ] || [ "$CODE" = "401" ]; then
-        echo "✅ n8n готов через Nginx (код $CODE, попытка $i)!"
+    API_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8088/api/admin/health" || true)
+    if [ "$CODE" = "200" ] && [ "$API_CODE" = "200" ]; then
+        echo "✅ Сервисы (n8n и Dashboard API) полностью готовы (код 200, попытка $i)!"
         break
     fi
     sleep 2
@@ -103,8 +110,9 @@ sudo docker restart tork_n8n tork_cdn
 echo "⏳ Ожидание перезапуска n8n и Nginx после публикации..."
 for i in {1..30}; do
     CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8088/" || true)
-    if [ "$CODE" = "200" ] || [ "$CODE" = "401" ]; then
-        echo "✅ Сервисы снова онлайн через Nginx (код $CODE, попытка $i)!"
+    API_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8088/api/admin/health" || true)
+    if [ "$CODE" = "200" ] && [ "$API_CODE" = "200" ]; then
+        echo "✅ Сервисы снова онлайн через Nginx (код 200, попытка $i)!"
         break
     fi
     sleep 2
@@ -123,6 +131,20 @@ echo "Ответ Telegram setWebhook: $SET_RES"
 curl -s -X POST "https://api.telegram.org/bot8896150273:AAE9PdQcenxCZVXgBhISBNwf0Nk3Zwr6yeY/setChatMenuButton" \
      -H "Content-Type: application/json" \
      -d "{\"menu_button\": {\"type\": \"web_app\", \"text\": \"✨ Каталог Tork\", \"web_app\": {\"url\": \"$TUNNEL_URL/webapp/\"}}}" > /dev/null
+
+echo "🧪 Тестирование API выбора продукции (/api/manager/select-kit)..."
+SELECT_STATUS="000"
+for i in {1..10}; do
+    SELECT_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "http://localhost:8088/api/manager/select-kit" \
+         -H "Content-Type: application/json" \
+         -d '{"items":[{"sku":"551000","name":"Tork Matic","system_code":"H1","color":"white","count":1}],"tg_user_id":5699064827}' || true)
+    if [ "$SELECT_STATUS" = "200" ]; then
+        echo "✅ API выбора продукции ответил 200 OK (попытка $i)!"
+        break
+    fi
+    sleep 2
+done
+echo "HTTP код ответа API выбора: $SELECT_STATUS"
 
 echo "🧪 Тестирование вебхука на сервере (ожидание активации роутера)..."
 TEST_STATUS="000"
@@ -157,10 +179,17 @@ echo "HTTP код ответа через Cloudflare туннель: $TUNNEL_STA
 
 echo ""
 echo "=================================================="
-if [ "$TEST_STATUS" = "200" ] || [ "$TUNNEL_STATUS" = "200" ]; then
-    echo "🎉 УСПЕХ! Вебхук ответил 200 OK — бот полностью активен!"
+if [ "$SELECT_STATUS" = "200" ] && ([ "$TEST_STATUS" = "200" ] || [ "$TUNNEL_STATUS" = "200" ]); then
+    echo "🎉 УСПЕХ! Бот и каталог полностью активны (API 200 OK, Webhook 200 OK)!"
 else
-    echo "⚠️ Вебхук вернул статус: Nginx=$TEST_STATUS, Tunnel=$TUNNEL_STATUS. Логи n8n:"
-    sudo docker logs tork_n8n --tail 25
+    echo "⚠️ Внимание! Select API=$SELECT_STATUS, Nginx Webhook=$TEST_STATUS, Tunnel=$TUNNEL_STATUS."
+    if [ "$SELECT_STATUS" != "200" ]; then
+        echo "--- Логи dashboard_api ---"
+        sudo docker logs tork_dashboard_api --tail 30
+    fi
+    if [ "$TEST_STATUS" != "200" ] && [ "$TUNNEL_STATUS" != "200" ]; then
+        echo "--- Логи n8n ---"
+        sudo docker logs tork_n8n --tail 25
+    fi
 fi
 echo "=================================================="
