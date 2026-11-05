@@ -49,16 +49,20 @@ EOF
 echo "💾 [3/6] Восстановление дампа базы данных n8n в PostgreSQL..."
 sudo docker exec -i tork_postgres psql -U tork_admin -d tork_bot_db < n8n_dump.sql
 
-# 4. Get current Tunnel URL
-echo "🌐 [4/6] Определение адреса туннеля Cloudflare..."
-TUNNEL_URL=$(sudo docker logs cloudflared 2>&1 | grep -o 'https://[-a-zA-Z0-9.]*\.trycloudflare\.com' | head -n 1 || true)
-if [ -z "$TUNNEL_URL" ]; then
-    echo "Перезапуск cloudflared..."
-    sudo docker rm -f cloudflared 2>/dev/null || true
-    sudo docker run -d --name cloudflared --restart unless-stopped --network host cloudflare/cloudflared:latest tunnel --url http://localhost:8088
-    sleep 5
-    TUNNEL_URL=$(sudo docker logs cloudflared 2>&1 | grep -o 'https://[-a-zA-Z0-9.]*\.trycloudflare\.com' | head -n 1)
-fi
+# 4. Restart Cloudflare Tunnel & Obtain Active HTTPS URL
+echo "🌐 [4/6] Перезапуск Cloudflare HTTPS туннеля (24/7)..."
+sudo docker rm -f cloudflared 2>/dev/null || true
+sudo docker run -d --name cloudflared --restart unless-stopped --network host cloudflare/cloudflared:latest tunnel --url http://localhost:8088
+
+echo "Ожидание выделения HTTPS адреса..."
+TUNNEL_URL=""
+for i in {1..30}; do
+    TUNNEL_URL=$(sudo docker logs cloudflared 2>&1 | grep -o 'https://[-a-zA-Z0-9.]*\.trycloudflare\.com' | tail -n 1 || true)
+    if [ -n "$TUNNEL_URL" ]; then
+        break
+    fi
+    sleep 2
+done
 
 echo "WEBHOOK_URL=$TUNNEL_URL" >> .env
 echo "N8N_WEBHOOK_URL=$TUNNEL_URL" >> .env
