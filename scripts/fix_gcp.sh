@@ -73,6 +73,9 @@ ON CONFLICT (\"workflowId\") DO UPDATE SET \"publishedVersionId\" = EXCLUDED.\"p
 UPDATE workflow_entity SET active = true, \"activeVersionId\" = '19f66501-b1fb-45e1-9d90-0c4add4f89a7' WHERE id = 'sHnoGT842oAJacFu';
 "
 
+echo "✨ Синхронизация кнопок презентаций и КП из workflows/tork_bot_workflow.json..."
+python3 scripts/sync_workflow_buttons.py || true
+
 # 4. Restart Cloudflare Tunnel & Obtain Active HTTPS URL
 echo "🌐 [4/6] Перезапуск Cloudflare HTTPS туннеля (24/7)..."
 sudo docker rm -f cloudflared 2>/dev/null || true

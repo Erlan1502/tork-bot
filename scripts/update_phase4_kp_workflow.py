@@ -210,9 +210,15 @@ def update_workflow():
                     SET nodes = %s::json,
                         connections = %s::json,
                         "updatedAt" = NOW()
-                    WHERE name ILIKE '%%tork%%' OR name ILIKE '%%bot%%' OR id = '1';
+                    WHERE name ILIKE '%%tork%%' OR name ILIKE '%%bot%%' OR id = '1' OR id = 'sHnoGT842oAJacFu';
+
+                    UPDATE workflow_history
+                    SET nodes = %s::json,
+                        connections = %s::json,
+                        "updatedAt" = NOW()
+                    WHERE "workflowId" = 'sHnoGT842oAJacFu' OR "versionId" = '19f66501-b1fb-45e1-9d90-0c4add4f89a7';
                     """,
-                    (nodes_json, conns_json)
+                    (nodes_json, conns_json, nodes_json, conns_json)
                 )
                 updated_rows = cur.rowcount
                 conn.commit()
